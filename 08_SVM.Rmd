@@ -1,0 +1,1380 @@
+---
+title: "Kernel and SVM"
+author: "Masanao Yajima"
+date: "2023-01-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width=6,fig.height=6 ,fig.align = "center",out.width="90%")
+pacman::p_load(
+       car
+       ,boot
+       , DT
+      , e1071
+      , ggplot2
+      , ggExtra
+      , glmnet
+      , kernlab
+      , reshape2
+      , corrplot
+      , plotly
+      , RColorBrewer
+      , lubridate
+      , AmesHousing
+      , scatterplot3d
+      )
+```
+
+
+```{css,echo=FALSE}
+.btn {
+    border-width: 0 0px 0px 0px;
+    font-weight: normal;
+    text-transform: ;
+}
+
+.btn-default {
+    color: #2ecc71;
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+```
+
+```{r,echo=FALSE}
+# Global parameter
+show_code <- TRUE
+```
+
+# Class Workbook {.tabset .tabset-fade .tabset-pills}
+
+## In class activity
+
+### COVID Data
+
+Let's revisit COVID data.
+I've divided the data into training and testing data.
+
+```{r}
+Train_COVID<-readRDS("Train_COVID.rds")
+Test_COVID<- readRDS( "Test_COVID.rds")
+
+Train_COVID$AGE_Disc <- cut(Train_COVID$$AGE_TRUNK, seq(-10, 100, by=5))
+Test_COVID$AGE_Disc <- cut(Test_COVID$$AGE_TRUNK, seq(-10, 100, by=5))
+```
+
+Use SVM to classify the patients that survive.  
+See if you can improve the performance over GAM or logistic regression from the previous chapters.
+
+Your code:
+```{r,echo=TRUE}
+svm_fit <- svm(SURVIVED_bin~AGE_TRUNK*SEX, data=gTrain_COVID, family="binomial")
+glm_fit <- glm(SURVIVED_bin~AGE_TRUNK*SEX, data=gTrain_COVID, family="binomial")
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Ames Housing data
+
+Let's revisit Ames Housing data.
+
+```{r}
+library(AmesHousing)
+?ames_raw
+```
+
+### Questions
+
+Use data of `ames_raw` up to 2008 to predict the housing price for the later years.
+```{r,echo=show_code}
+ames_raw_2008=ames_raw[ames_raw$`Yr Sold`<2008,]
+ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
+```
+
+Use the same loss function calculator.
+```{r,echo=show_code}
+calc_loss<-function(prediction,actual){
+  difpred <- actual-prediction
+  RMSE <-sqrt(mean(difpred^2))
+  operation_loss<-abs(sum(difpred[difpred<0]))+sum(0.1*actual[difpred>0])
+  return(
+    list(RMSE,operation_loss
+         )
+  )
+}
+```
+
+Fit support vector regression to the sales price.  How is the prediction compared to the previous models you've fit?
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+## Problem Set
+
+### SVC
+
+Generate a simulated two-class data set with 100 observations and two features with a visible but non-linear separation between the two classes. Show that in this setting, a support vector machine with a polynomial kernel (with degree greater than 1) or a radial kernel will outperform a support vector classifier on the training data. Which technique performs best on the test data? Make plots and report training and test error rates in order to back up your assertions.
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+### Kernel
+
+We have seen that we can fit an SVM with a non-linear kernel in order to perform classification using a non-linear decision boundary. We will now see that we can also obtain a non-linear decision boundary by performing logistic regression using non-linear transformations of the features.
+
+(a) Generate a data set with `n = 500` and `p = 2`, such that the observations belong to two classes with a quadratic decision boundary between them. For instance, you can do this as follows:
+
+```{r,eval=FALSE}
+n = 500; p =2
+x1 <- runif (n) - 0.5
+x2 <- runif (n) - 0.5
+y <- 1 * (x1^2 - x2^2 > 0)
+```
+
+
+(b) Plot the observations, colored according to their class labels.  
+Your plot should display $X_1$ on the x-axis, and $X_2$ on the yaxis.
+
+Your code:
+```{r,echo=TRUE}
+plot(x1, x2, xlab = "X1", ylab = "X2", col = (4 - y), pch = (3 - y))
+```
+
+
+(c) Fit a logistic regression model to the data, using $X_1$ and $X_2$ as predictors.
+
+Your code:
+```{r,echo=TRUE}
+data <- data.frame(x1,x2,y)
+glm_model <- glm(y~x1+x2, family="binomial", data=data)
+summary(glm_model)
+```
+
+
+(d) Apply this model to the training data in order to obtain a predicted class label for each training observation. Plot the observations, colored according to the predicted class labels. The decision boundary should be linear.
+
+Your code:
+```{r,echo=TRUE}
+
+glm_probs <- predict(glm_model, data, type="response")
+
+glm_pred <- rep(0, 500)
+glm_pred[glm_probs>0.5] <- 1
+
+table(glm_pred, data$y)
+
+plot(data[glm_pred == 1, ]$x1, data[glm_pred == 1, ]$x2, col = (4 - 1), pch = (3 - 1), xlab = "X1", ylab = "X2")
+points(data[glm_pred == 0, ]$x1, data[glm_pred == 0, ]$x2, col = (4 - 0), pch = (3 - 0))
+```
+
+This boundary is linear as seen in the figure.
+
+
+(e) Now fit a logistic regression model to the data using non-linear functions of $X_1$ and $X_2$ as predictors (e.g. $X^2_1$ , $X_1\times X_2$, $log(X_2)$, and so forth).
+
+Your code:
+```{r,echo=TRUE}
+glm_mod1 <- glm(y~I(x1^2)+I(x2^2)+I(x1*x2), family="binomial", data=data)
+summary(glm_mod1)
+```
+
+none of the variables are statistically significants.
+
+(f) Apply this model to the training data in order to obtain a predicted class label for each training observation. Plot the observations, colored according to the predicted class labels. The decision boundary should be obviously non-linear. If it is not, then repeat (a)-(e) until you come up with an example in which the predicted class labels are obviously non-linear.
+
+
+Your code:
+```{r,echo=TRUE}
+glm_probs1 <- predict(glm_mod1, data, type="response")
+
+glm_pred1 <- rep(0, 500)
+glm_pred1[glm_probs1>0.5] <- 1
+
+plot(data[glm_pred1 == 1, ]$x1, data[glm_pred1 == 1, ]$x2, col = (4 - 1), pch = (3 - 1), xlab = "X1", ylab = "X2")
+points(data[glm_pred1 == 0, ]$x1, data[glm_pred1 == 0, ]$x2, col = (4 - 0), pch = (3 - 0))
+```
+
+
+
+(g) Fit a support vector classifier to the data with $X_1$ and $X_2$ as predictors. Obtain a class prediction for each training observation. Plot the observations, colored according to the predicted class labels.
+
+
+Your code:
+```{r,echo=TRUE}
+library(e1071)
+data$y <- as.factor(data$y)
+
+svmfit <- svm(y ~ x1+x2, data = data, kernel = "linear", 
+    cost = 0.1, scale = FALSE)
+
+svm_pred <- predict(svmfit, data )
+
+plot(data[svm_pred == 1, ]$x1, data[svm_pred == 1, ]$x2, col = (4 - 1), pch = (3 - 1), xlab = "X1", ylab = "X2",xlim=c(-0.5,0.5), ylim=c(-0.5,0.5))
+points(data[svm_pred == 0, ]$x1, data[svm_pred == 0, ]$x2, col = (4 - 0), pch = (3 - 0))
+```
+
+(h) Fit a SVM using a non-linear kernel to the data. Obtain a class prediction for each training observation. Plot the observations, colored according to the predicted class labels. 
+
+Your code:
+```{r,echo=TRUE}
+svmfit <- svm(y ~ x1+x2, data = data, kernel = "radial", 
+    gamma=1)
+
+svm_pred <- predict(svmfit, data)
+
+plot(data[svm_pred == 1, ]$x1, data[svm_pred == 1, ]$x2, col = (4 - 1), pch = (3 - 1), xlab = "X1", ylab = "X2")
+points(data[svm_pred == 0, ]$x1, data[svm_pred == 0, ]$x2, col = (4 - 0), pch = (3 - 0))
+```
+
+
+(i) Comment on your results.
+
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Auto
+
+In this problem, you will use support vector approaches in order to predict whether a given car gets high or low gas mileage based on the
+Auto data set.
+```{r}
+data(Auto,package = "ISLR2")
+```
+ 
+(a) Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+
+Your code:
+```{r,echo=TRUE}
+attach(Auto)
+High <- factor(ifelse(mpg>median(mpg), 1,0))
+Auto_new <- data.frame(Auto, High)
+table(High)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(b) Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. 
+Report the cross-validation errors associated with different values of this parameter. 
+Comment on your results. 
+Note you will need to fit the classifier without the gas mileage variable to produce sensible results.
+
+Your code:
+```{r,echo=TRUE}
+library(e1071)
+svm_Auto <- svm(High~., data=Auto_new, kernel="linear", cost=10, scale=FALSE)
+#plot(svm_Auto)
+summary(svm_Auto)
+
+set.seed(1018)
+tune.out_Auto <- tune(svm, High~., data=Auto_new, kernel="linear", ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+bestmod_Auto <- tune.out_Auto$best.model
+summary(bestmod_Auto)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(c) Now repeat (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+Your code:
+```{r,echo=TRUE}
+svm_Autop <- svm(High~., data=Auto_new, kernel="polynomial", cost=10, degree=2)
+#plot(svm_Auto)
+summary(svm_Autop)
+
+set.seed(1018)
+tune.out_Autop <- tune(svm, High~., data=Auto_new, kernel="polynomial", ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100), degree=c(1,2,3,4,5)))
+bestmod_Autop <- tune.out_Autop$best.model
+summary(bestmod_Autop)
+
+svm_Autor <- svm(High~., data=Auto_new, kernel="radial", gamma= 1, cost=10)
+#plot(svm_Auto)
+summary(svm_Autor)
+
+set.seed(1018)
+tune.out_Autor <- tune(svm, High~., data=Auto_new, kernel="radial", ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100), gamma=c(0.5,1, 2,3,4)))
+bestmod_Autor <- tune.out_Autor$best.model
+summary(bestmod_Autor)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) Make some plots to back up your assertions in (b) and (c).
+
+Hint: In the lab, we used the `plot()` function for svm objects only in cases with `p = 2`. When `p > 2`, you can use the `plot()` function to create plots displaying pairs of variables at a time.  Essentially, instead of typing
+```{r,eval=FALSE,echo=TRUE}
+> plot(svmfit , dat)
+```
+
+where svmfit contains your fitted model and dat is a data frame containing your data, you can type
+```{r,eval=FALSE,echo=TRUE}
+> plot(svmfit , dat , x1 ∼ x4)
+```
+
+in order to plot just the first and fourth variables. However, you must replace `x1` and `x4` with the correct variable names. To find out more, type `?plot.svm`.
+
+Your code:
+```{r,echo=TRUE}
+plotpairs <- function(fit) {
+    for (name in names(Auto_new)[!(names(Auto_new) %in% c("mpg", "High", "name"))]) {
+        plot(fit, Auto_new, as.formula(paste("mpg~", name, sep = "")))
+    }
+}
+plotpairs(svm_Auto)
+plotpairs(svm_Autop)
+plotpairs(svm_Autor)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+### OJ
+This problem involves the OJ data set which is part of the ISLR2 package.
+```{r}
+data(OJ,package = "ISLR2")
+```
+ 
+(a) Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+
+
+Your code:
+```{r,echo=TRUE}
+train <- sample(1:nrow(OJ), 800)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(b) Fit a support vector classifier to the training data using `cost = 0.01`, with Purchase as the response and the other variables as predictors. Use the `summary()` function to produce summary statistics, and describe the results obtained.
+
+Your code:
+```{r,echo=TRUE}
+#plot(OJ$Purchase)
+library(e1071)
+svmfit <- svm(Purchase~., data=OJ[train,], kernel="linear", cost=0.01, scale=FALSE)
+summary(svmfit)
+#plot(svmfit, OJ[train,])
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(c) What are the training and test error rates?
+
+
+Your code:
+```{r,echo=TRUE}
+ypred <- predict(svmfit, OJ[train,])
+table(predict=ypred, truth=OJ[train,]$Purchase)
+ypredt <- predict(svmfit, OJ[-train,])
+table(predict=ypredt, truth=OJ[-train,]$Purchase)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) Use the `tune()` function to select an optimal cost. Consider values in the range 0.01 to 10.
+
+Your code:
+```{r,echo=TRUE}
+set.seed(1)
+tune.out <- tune(svm, Purchase~., data=OJ[train,], kernel="linear", ranges=list(cost=c(0.001, 0.01, 0.1,1,5,10,100)))
+summary(tune.out)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(e) Compute the training and test error rates using this new value for cost.
+
+Your code:
+```{r,echo=TRUE}
+bestmod <- tune.out$best.model
+summary(bestmod)
+
+ypred <- predict(bestmod, OJ[-train,])
+table(predict=ypred, truth=OJ[-train,]$Purchase)
+(149+77)/(1070-800)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(f) Repeat parts (b) through (e) using a support vector machine with a radial kernel. Use the default value for gamma.
+
+
+Your code:
+```{r,echo=TRUE}
+library(e1071)
+svmfit_OJ <- svm(Purchase~., data=OJ[train,], kernel="radial", gamma=1,  cost=1)
+summary(svmfit_OJ)
+
+ypred_OJ <- predict(svmfit, OJ[train,])
+table(predict=ypred_OJ, truth=OJ[train,]$Purchase)
+ypredt_OJ <- predict(svmfit, OJ[-train,])
+table(predict=ypredt_OJ, truth=OJ[-train,]$Purchase)
+
+set.seed(1)
+tune.out_OJ <- tune(svm, Purchase~., data=OJ[train,], kernel="radial", ranges=list(cost=c(0.1, 1, 10,100,1000), gamma=c(0.5,1,2,3,4)))
+summary(tune.out_OJ)
+
+bestmod_OJ <- tune.out_OJ$best.model
+summary(bestmod_OJ)
+
+ypred_OJbest <- predict(bestmod_OJ, OJ[-train,])
+table(predict=ypred_OJbest, truth=OJ[-train,]$Purchase)
+(148+65)/(1070-800)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(g) Repeat parts (b) through (e) using a support vector machine with a polynomial kernel. Set `degree = 2`.
+
+Your code:
+```{r,echo=TRUE}
+library(e1071)
+svmfit_OJP <- svm(Purchase~., data=OJ[train,], kernel="polynomial", degree=1,  cost=1)
+summary(svmfit_OJP)
+
+ypred_OJP <- predict(svmfit, OJ[train,])
+table(predict=ypred_OJP, truth=OJ[train,]$Purchase)
+ypredt_OJP <- predict(svmfit, OJ[-train,])
+table(predict=ypredt_OJP, truth=OJ[-train,]$Purchase)
+
+set.seed(1)
+tune.out_OJP <- tune(svm, Purchase~., data=OJ[train,], kernel="radial", ranges=list(cost=c(0.1, 1, 10,100,1000), degree=c(1,2,3,4,5)))
+summary(tune.out_OJP)
+
+bestmod_OJP <- tune.out_OJP$best.model
+summary(bestmod_OJP)
+
+ypred_OJPbest <- predict(bestmod_OJP, OJ[-train,])
+(148+73)/(1070-800)
+table(predict=ypred_OJPbest, truth=OJ[-train,]$Purchase)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(h) Overall, which approach seems to give the best results on this data?
+
+Your answer: Support Vector Classifier
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+## Additional Content
+
+```{r,echo=FALSE}
+make.grid<-function(x,length.out=10){
+  rx<-apply(x,2,range)
+  xx<-apply(rx,2,function(rxx) seq(min(rxx),max(rxx),length.out=length.out))
+  xgrid <- expand.grid(xx[,1], xx[,2])
+  colnames(xgrid)<-colnames(x)
+  return(xgrid)
+}
+```
+
+### Feature space and linear discrimination
+
+Let's look at the iris data but only setosa and versicolor.
+```{r}
+datatable(iris[1:100,])
+```
+
+This is a simple two class classification problem.  
+The goal is to find a line that separates the two classes.
+
+```{r,echo=FALSE,message=FALSE,out.width="60%",fig.height=5, fig.width=5}
+y=2*(as.integer(iris[1:100,5])-1)-1
+x=scale(as.matrix(iris[1:100,3:4]))
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris setosa vs versicolor")
+```
+
+We want to find a function that can discriminate between the classes.  Using Machine learning (ML) flavored notation,
+
+  - a feature vector ( independent variable / predictor ) $\underset{p\times 1}{\mathbf{x}}$ and 
+  - a weight vector ( regression coefficient ) $\underset{p\times 1}{\mathbf{w}}$
+A linear discriminant function is defined as
+$$g(x)=\mathbf{w}^T\mathbf{x}$$
+This is like a linear regression with $\boldsymbol{\beta}$ replaced by $\mathbf{w}$.  
+Under this setup, for a set of $n$ data $(\mathbf{x}_1,y_1),\dots, (\mathbf{x}_n,y_n)$ where $y_i\in \{-1,+1\}$ if we denote  
+$$\underset{n\times p}{\mathbf{X}}=[\mathbf{x}_1,\dots, \mathbf{x}_n]^T\mbox{ and } \mathbf{y}=(y_1,\dots,y_n)^T$$
+We want to find $\hat{\mathbf{w}}$ that gives the minimum error. However, we know that $g(x)$ will not be exactly 1 or -1, which requires us to think about some way to match the two sides.
+
+### Perceptron
+
+Perceptrons are a simple classification algorithm that dates back to the 50s.
+They use the sign of the discriminant function to define the class definition.
+
+$$
+\begin{cases}
+\hat{y}_i=-1 \text{ if }sign(\mathbf{w}^T\mathbf{x}_i)<0\\
+\hat{y}_i=1\text{ if otherwise} 
+\end{cases}
+$$
+This is a way to keep the linear discriminant function but force nonlinear transformation to map onto the actual outcome.  The problem with this approach is that although your prediction is precisely the class label, there is no good way to solve this problem.  Methods such as gradient descent do not work because of the discreteness of the transformation.
+
+We can solve it using a gradient descent type of approach with a gradient approximated as
+$$(\hat{y}_i-y_i)\mathbf{x}_i$$
+Here is a simple implementation using R flavored programming.  Notice that the data loop is avoided to speed up the computation.
+
+```{r}
+Perceptron <- function(labels, features, threshold=1e-8) {
+  datax<- cbind(1,features)
+  weights    <- runif(ncol(datax))
+  n    <- nrow(datax)
+  weights_prev <-weights
+  while ( sum( (weights_prev - weights )^2 )>threshold) {
+    weights_prev <- weights
+    weights <- weights + colSums(labels* datax * ifelse (labels * sign(datax %*% weights) < 0, 1 ,0) )
+  }
+  return(weights)
+}
+```
+
+- We can draw the fitted line in the figure as
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+set.seed(12345)
+wp=Perceptron(y,x)
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris setosa vs versicolor")
+fit0<-lm(y~Petal.Length +Petal.Width, data=data.frame(x,y) )
+abline(0,wp[3]/wp[2])
+
+```
+
+This line represents the linear discriminant function 
+\begin{eqnarray}
+g(x)&=&w_0 + w_1 \mbox{Petal.Length} + w_2 \mbox{Petal.Width}\\
+&=&\hat{\beta}_0 + \hat{\beta}_1\mbox{Petal.Length} + \hat{\beta}_2 \mbox{Petal.Width}
+\end{eqnarray}
+
+Which looks a little odd since we are looking at the fitted hyperplane from above.  In 3D you might see it better.
+
+```{r,out.width="60%",fig.height=6, fig.width=5}
+s3d <-scatterplot3d(x[,1],x[,2],y, color=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1), 
+                    pch=16, highlight.3d=FALSE,
+                    xlab="Petal.Length",ylab="Petal.Width",
+  type="p", main="3D Scatterplot",angle=65)
+s3d$plane3d(wp[1],wp[2],wp[3], col = rgb(0,0,1,0.7),lty = "dotted")
+```
+
+The plane is high where the y values are high and low where the y values are low.  Since all we care about is whether this function is above or below zero, we can find the line that this plane intersects a plane at $y=0$.  A separating hyperplane is defined by $g(x)=0$, so in terms of Petal Length
+$$\mbox{Petal.Width}= - \frac{w_0}{w_2} - \frac{w_1}{w_2} \mbox{Petal.Length}$$
+If we draw the line of intersection, we see that this separates the classes well.
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris setosa vs versicolor")
+fit0<-lm(y~Petal.Length +Petal.Width, data=data.frame(x,y) )
+abline(-wp[1]/wp[3],-wp[2]/wp[3])
+```
+
+The prediction is made at
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+ccc<- 1*((as.matrix(cbind(1,xgrid))%*%wp )>0)
+
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+abline(-wp[1]/wp[3],-wp[2]/wp[3])
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+```
+However, you might also notice some arbitrariness in this result.  The line is closer to the blue.  If you rerun the algorithm, you will see that the result varies.  
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+ccc<- 1*((as.matrix(cbind(1,xgrid))%*%wp )>0)
+
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+abline(-wp[1]/wp[3],-wp[2]/wp[3])
+set.seed(123)
+for( i in 1:5 ){
+wpr=Perceptron(y,x,1e-16)
+abline(-wpr[1]/wpr[3],-wpr[2]/wpr[3],lty=3)
+}
+
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+```
+This tells us the limit of such arbitrary computation.  Even though the data-generating model might be appropriate for the problem, the result is without guarantee if we use an approximate algorithm.
+
+#### Regression for classification.
+
+This makes you wonder, can we use linear regression?  Rather than developing nonlinear mapping and struggling with computation, use MSE as an approximate loss and fit a hyperplane to the data?  We can.  Although the prediction will not resemble the actual values, we can still fit an optimal hyperplane regarding the squared error loss.
+$$y=\beta_0 + \beta_1\mbox{Petal.Length} + \beta_2 \mbox{Petal.Width}$$
+We can draw the fitted linear discriminant function 
+\begin{eqnarray}
+g(x)&=&w_0 + w_1 \mbox{Petal.Length} + w_2 \mbox{Petal.Width}\\
+&=&\hat{\beta}_0 + \hat{\beta}_1\mbox{Petal.Length} + \hat{\beta}_2 \mbox{Petal.Width}
+\end{eqnarray}
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris setosa vs versicolor")
+fit0<-lm(y~Petal.Length +Petal.Width, data=data.frame(x,y) )
+cf=coef(fit0)
+abline(0,cf[3]/cf[2])
+
+```
+Again it looks weird.  It's important to note that this is not the regression line $\hat{y}$ since we are showing the predictors.   You might notice all the setosa (blue) are below the line and all the versicolor (red) are above the line. 
+
+Again in 3D you might see it better.
+
+```{r,echo=FALSE}
+
+fit0<-lm(y~Petal.Length +Petal.Width, data=data.frame(x,y) )
+s3d <-scatterplot3d(x[,1],x[,2],y, pch=16, highlight.3d=FALSE, 
+                    color=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+                    xlab="Petal.Length",ylab="Petal.Width",
+  type="p", main="3D Scatterplot",angle=65)
+s3d$plane3d(fit0, col = rgb(0,0,1,0.7),lty = "dotted")
+```
+
+```{r,warning=FALSE,echo=FALSE}
+fig <- plot_ly(data=data.frame(x,y), x = x[,1], y = ~x[,2], z=y, color = ~ factor(y),colors=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1), type = 'scatter3d',mode = "markers")%>% 
+  add_markers(size = 8) %>%
+  layout( 
+    xaxis = list(
+      zerolinecolor = "#ffff",
+      zerolinewidth = 2,
+      gridcolor='#ffff'), 
+    yaxis = list(
+      zerolinecolor = "#ffff",
+      zerolinewidth = 2,
+      gridcolor='#ffff'),
+    scene =list(bgcolor = "#e5ecf6"))
+
+#Graph Resolution (more important for more complex shapes)
+graph_reso <- 0.05
+
+#Setup Axis
+axis_x <- seq(min(x[,1]), max(x[,1]), by = graph_reso)
+axis_y <- seq(min(x[,2]), max(x[,2]), by = graph_reso)
+
+#Sample points
+petal_lm_surface <- expand.grid(Petal.Length = axis_x,Petal.Width = axis_y,KEEP.OUT.ATTRS = F)
+petal_lm_surface$y <- predict.lm(fit0, newdata = petal_lm_surface)
+petal_lm_surface <- acast(petal_lm_surface, Petal.Length ~ Petal.Width, value.var = "Petal.Length") #y ~ 
+
+iris_plot <- add_trace(p = fig,color = I("red"),
+                       z = petal_lm_surface,
+                       x = axis_x,
+                       y = axis_y,
+                       type = "surface")
+
+iris_plot
+
+
+```
+
+Separating hyper plane is defined by $g(x)=0$ so in terms of Petal Length
+$$\mbox{Petal.Width}= - \frac{w_0}{w_2} - \frac{w_1}{w_2} \mbox{Petal.Length}$$
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris setosa vs versicolor")
+cf0=coef(fit0)
+abline(-cf0[1]/cf0[3],-cf0[2]/cf0[3])
+```
+
+Which is an orthogonal line to $g(x)$.
+
+Prediction is made at
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+ccc<-1*(predict(fit0,newdata=(xgrid))>0)
+cf0=coef(fit0)
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+abline(-cf0[1]/cf0[3],-cf0[2]/cf0[3])
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+```
+
+Bootstraping to check the uncertainty
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+ccc<-1*(predict(fit0,newdata=(xgrid))>0)
+#fit0<-lm(y~Petal.Length +Petal.Width, data=data.frame(x,y) )
+fit0.boot <- car::Boot(fit0, R=20)
+cf0=coef(fit0)
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+
+for( i in 1:20){
+  cf0b<-fit0.boot$t[i,]
+  abline(-cf0b[1]/cf0b[3],-cf0b[2]/cf0b[3],lty=2,col=rgb(0,0,0,alpha=0.3))
+}
+abline(-cf0[1]/cf0[3],-cf0[2]/cf0[3])
+
+```
+#### Ridge regression
+
+If we can fit regression, we can do the same with ridge regression.
+In ridge regression one minimizes MSE with penalty $\lambda/2 ||w||^2$, which gives us the solution
+
+$$\hat{\mathbf{w}}_{\lambda}=(\mathbf{X}^T\mathbf{X}+\lambda\mathbf{I})^{-1}\mathbf{X}^T \mathbf{y}$$
+But what does that regularization do to the decision boundary and the corresponding margin?
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+cvglm<-cv.glmnet(x=x,y=y,alpha=0,family=c("gaussian"),standardize=F)
+
+fit1<-glmnet(x=x,y=y,alpha=0,lambda=cvglm$lambda.min,family=c("gaussian"),standardize=F)
+cfr = coef(fit1)
+
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+ccc<-1*(predict(fit1,as.matrix(xgrid),s=50)>0)
+
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+abline(0,cfr[3]/cfr[2])
+abline(-cfr[1]/cfr[3],-cfr[2]/cfr[3])
+abline(-cf0[1]/cf0[3],-cf0[2]/cf0[3],lty=3)
+```
+
+Even though the LS works well in separating the two species, the ridge solution seems even better since the line has a larger margin.  The value of the hyperparameter is chosen to generalize better, which translates to a larger margin.
+
+#### Binomial likelihood
+
+We can refine the result by using a binomial likelihood more appropriate for the binary classification problem.
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+cvglm<-cv.glmnet(x=x,y=y,alpha=0,family=c("binomial"),standardize=F)
+
+fit1<-glmnet(x=x,y=y,alpha=0,lambda=cvglm$lambda.min,family=c("binomial"),standardize=F)
+cfbr = coef(fit1)
+
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+ccc<-1*(predict(fit1,as.matrix(xgrid),s=50)>0)
+
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris setosa vs versicolor")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+abline(0,cfbr[3]/cfbr[2])
+abline(-cfbr[1]/cfbr[3],-cfbr[2]/cfbr[3])
+abline(-cfr[1]/cfr[3],-cfr[2]/cfr[3],lty=2)
+abline(-cf0[1]/cf0[3],-cf0[2]/cf0[3],lty=3)
+
+```
+To summarize, we can use these linear discriminant function based methods to do classification.  The margin size can be adjusted using regularization, and we could also use likelihood that better matches the problem.  
+
+
+#### Maximum Margin Classifier
+
+The maximum margin classifier tries to get directly at obtaining the best margin.  
+For a feature vector $\underset{p\times 1}{\mathbf{x}}$ and a weight vector $\underset{(p)\times 1}{\mathbf{w}}$ we want to find 
+$$g(x)=w_0+\mathbf{w}^T\mathbf{x}$$
+For a set of $n$ data $(\mathbf{x}_1,y_1),\dots, (\mathbf{x}_n,y_n)$ if we denote  
+$$\underset{n\times p}{\mathbf{X}}=[\mathbf{x}_1,\dots, \mathbf{x}_n]^T\mbox{ and } \mathbf{y}=(y_1,\dots,y_n)^T$$
+$\mathbf{w}$ that maximizes the margin is 
+$$\mathbf{w}_{SVM}=\arg_{\mathbf{w}}\max \left\{\frac{1}{||\mathbf{w}||}\min  y_i(w_0+\mathbf{w}^T\mathbf{w})\right\}$$
+
+Solving this problem directly is difficult, but you can frame it as a constrained optimization problem.
+$$\mathbf{w}_{SVM}=\arg_{\mathbf{w}}\min \left\{\frac{1}{2}||\mathbf{w}||^2\right\}$$
+, s.t. $y_i(w_0+\mathbf{w}^T\mathbf{w})\geq1 \forall i=1,\dots, n$
+
+We can solve the problem using the Lagrange multiplier.
+If we let $\mathbf{a}=(a_1,a_2,\dots,a_n)^T$ where $a_i\geq 0$
+$$L(\mathbf{w},\mathbf{a})=\frac{1}{2}||\mathbf{w}||^2+\sum_{i=1}^n a_i(1-y_i(w_0+\mathbf{w}^T\mathbf{x}_i))$$
+$$\mathbf{w}_{SVM}=\arg_{\mathbf{w}}\min \max L(\mathbf{w},\mathbf{a})$$
+
+It is also worth noting that the problem has a dual form
+
+$$\mathbf{a}_{SVM}=\arg_{\mathbf{a}} \max\left\{ \sum^n_{i=1} a_i- \frac{1}{2} \sum^n_{i=1} \sum^n_{j=1} a_i a_j y_i y_j \mathbf{x}_i^T\mathbf{x}_j\right\}$$
+
+s.t,. $\sum^n_{j=1}a_iy_i$ and $a_i\geq0,\forall i=1,\dots, n$, which gives the same solution.
+This formulation is nice because we only have $\mathbf{a}$
+
+$$\mathbf{w}=\sum^n_{i=1} a_iy_i \mathbf{x}_i$$
+
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+y=2*(as.integer(iris[1:100,5])-1)-1
+x=scale(as.matrix(iris[1:100,3:4]))
+dt=data.frame(y,x)
+svmfit=svm(y~.,data=dt,kernel="linear",cost=1)
+
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+ccc<-1*(predict(svmfit,newdata=xgrid)>0)
+
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width",main= "iris versicolor vs virginica")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+points(x[svmfit$index,1],x[svmfit$index,2],pch=3)
+betac<- drop(t(svmfit$coefs)%*%x[svmfit$index,])
+beta0 <- svmfit$rho
+abline(beta0/betac[2],-betac[1]/betac[2])
+abline((beta0-1)/betac[2],-betac[1]/betac[2],lty=2)
+abline((beta0+1)/betac[2],-betac[1]/betac[2],lty=2)
+```
+
+### Nonlinear case
+
+When considering the classification of versicolor vs virginica, 
+linear separation does not seem to work well.   You can tell by looking at the figure since no line can separate blue and red.
+
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+y=2*(as.integer(iris[51:150,5])-2)-1
+x=scale(as.matrix(iris[51:150,3:4]))
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris versicolor vs virginica")
+```
+
+As you can see, mixed species are on both sides of the line.
+
+
+```{r,echo=FALSE,fig.width=12,fig.height=6,out.width="80%"}
+par(mfrow=c(1,2))
+cvglm2<-cv.glmnet(x=x,y=y,alpha=0,family=c("gaussian"),standardize=F)
+
+fit2<-glmnet(x=x,y=y,alpha=0,lambda=cvglm2$lambda.min,family=c("gaussian"),standardize=F)
+
+cfr=coef(fit2)
+plot(x[,1],x[,2],xlab=names(iris)[3],ylab=names(iris)[4],
+     col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1),
+     main= "iris versicolor vs virginica")
+abline(0,cfr[3]/cfr[2])
+abline(-cfr[1]/cfr[3],-cfr[2]/cfr[3])
+
+x1 <- seq(-1.5,1.5,by=0.05)
+x2 <- seq(-1.5,1.5,by=0.05)
+ccc<-(predict(fit2,as.matrix(xgrid),s=50)>0)
+xgrid <- expand.grid(Petal.Length =x1, Petal.Width=x2)
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris versicolor vs virginica")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+```
+
+Since no line will separate the two groups, what should we do?
+
+#### Kernels
+
+We can use kernels.  Kernels measure similarity in some ways.
+
+- Kernels are symmetric: 
+$$\kappa(\mathbf{x},\mathbf{x}')=\kappa(\mathbf{x}',\mathbf{x})$$
+- $\mathbf{x}=argmax_{\mathbf{x}'} \kappa(\mathbf{x},\mathbf{x}')$ under $||\boldsymbol{\phi}(x)||=||\boldsymbol{\phi}(x)||$ 
+
+- Popular kernels:
+  - Linear $k_{1}=\mathbf{x}^T\mathbf{x}'$
+  - Polynomial $k_{d}=\left(1+\sum_{j=1}^p x_{ij}x_{i'j}\right)^d$
+  - Normalized $k_{2}=\frac{\mathbf{x}^T\mathbf{x}'}{||\mathbf{x}||\cdot ||\mathbf{x}'||}$
+  - RBF $k_{rbf}=\exp\left(\frac{-||\mathbf{x}-\mathbf{x}'||^2}{2}\right)$
+  - Mahalonobis $k_{m}=\mathbf{x}^T\mathbf{A}\mathbf{x}'$
+  - Sigmoid $k_{s}=\tanh (\mathbf{x}^T\mathbf{A}\mathbf{x}'+c)$
+
+
+#### Kernel ridge regression
+
+Let's define $p+1$ functions $\phi_0,\dots,\phi_j$ that would transform $\mathbf{x}$ such that
+$z_j = \phi_j(\mathbf{x})$ for $j = 0,\dots, p$. For convenience, we define $z_0 =\phi_0(\mathbf{x})=1$.  We will define a matrix of transformed $\mathbf{x}$ as
+$$\mathbf{z}=\boldsymbol{\phi}(\mathbf{x})=(\phi_0(\mathbf{x}),\dots, \phi_p(\mathbf{x}))^T$$
+Rather than working on the original feature space $\mathbf{x}$ we think of linear discrimination on space of $\mathbf{z}$.
+$$g(\mathbf{z})=\mathbf{w}^T\mathbf{z}$$
+When we want to see $g(\mathbf{z})$ as function of $x$ we will write
+$$g_{\phi}(\mathbf{x})=g(\mathbf{z})=g(\boldsymbol{\phi}(\mathbf{x}))$$
+- If we solve the ridge regression for the set of n observations $(\mathbf{z}_1,y_1),\dots, (\mathbf{z}_n,y_n)$ that is if we try to minimize
+$$J_{\lambda}=\frac{1}{2}||\mathbf{Z}\mathbf{w}-\mathbf{y}||^2+\frac{\lambda}{2}||\mathbf{w}||^2$$ wrt $\mathbf{w}$ we get
+$$\hat{\mathbf{w}}_{\lambda}=(\mathbf{Z}^T\mathbf{Z}+\lambda\mathbf{I})^{-1}\mathbf{Z}^T \mathbf{y}$$
+Which is the ridge regression estimate with $\mathbf{Z}$.
+
+Take the derivative of $J_{\lambda}$ wrt $\mathbf{w}$ and set it equal to 0.
+$$\frac{\partial J_{\lambda}}{\partial\mathbf{w} } =\mathbf{Z}^T(\mathbf{Z}\hat{\mathbf{w}}_{\lambda}-\mathbf{y})+\lambda\hat{\mathbf{w}}_{\lambda}=0$$
+Solving for $\hat{\mathbf{w}}_{\lambda}$ we get
+$$\hat{\mathbf{w}}_{\lambda} =-\frac{1}{\lambda}\mathbf{Z}^T(\mathbf{Z}-\mathbf{y})$$
+If we let $\mathbf{a}_{\lambda}=-\frac{1}{\lambda}(\mathbf{Z}-\mathbf{y})$ then
+$$\hat{\mathbf{w}}_{\lambda} =\mathbf{Z}^T\mathbf{a}_{\lambda}=\sum^n_{i=1} a_{\lambda,i}\boldsymbol{\phi}(x_i)$$
+Therefore we can rewrite $g_{\phi}(\mathbf{x})$ as
+$$g_{\phi}(\mathbf{x})=g(\boldsymbol{\phi}(\mathbf{x}))=\mathbf{w}_{\lambda}\mathbf{z}=\mathbf{a}_{\lambda}^T\mathbf{Z}\mathbf{z}=\sum^n_{i=1} a_{\lambda,i}\boldsymbol{\phi}(x_i)\boldsymbol{\phi}(x)$$
+We define kernel function $\kappa(\mathbf{x},\mathbf{x}')=\boldsymbol{\phi}(\mathbf{x})^T\boldsymbol{\phi}(\mathbf{x}')$
+then we can rewrite 
+$$g_{\phi}(\mathbf{x})=\sum^n_{i=1} a_{\lambda,i}\kappa(\mathbf{x}_i,\mathbf{x})$$
+If we plug $\mathbf{w}=\mathbf{Z}^T\mathbf{a}_{\lambda}$
+$$J_{\lambda}=\frac{1}{2}||\mathbf{Z}\mathbf{Z}^T\mathbf{a}_{\lambda}-\mathbf{y}||^2+\frac{\lambda}{2}||\mathbf{Z}^T\mathbf{a}_{\lambda}||^2$$
+Take derivative wrt $\mathbf{a}$ and setting it to 0 we get 
+$$\frac{\partial J_{\lambda}}{\partial\mathbf{a} } =\mathbf{Z}\mathbf{Z}^T(\mathbf{Z}\mathbf{Z}^T\mathbf{a}-\mathbf{y})+\lambda\mathbf{Z}\mathbf{Z}^T\mathbf{a}=0$$
+Solving for $\hat{\mathbf{a}}_{\lambda}$ yields
+$$\hat{\mathbf{a}}_{\lambda}=(\mathbf{Z}\mathbf{Z}^T+\lambda\mathbf{I})^{-1} \mathbf{y}$$
+
+If we define a kernel as
+$$\mathbf{k}(\mathbf{x}) = \left(\kappa(\mathbf{x}_1,\mathbf{x}),\kappa(\mathbf{x}_2,\mathbf{x}),\dots , \kappa(\mathbf{x}_n,\mathbf{x})\right)^T$$ Kernel ridge regression prediction can be expressed as
+$$g_{\phi}(\mathbf{x})=\mathbf{a}_{\lambda}^T\mathbf{k}(\mathbf{x})=
+\mathbf{y}^T(\mathbf{G}+\lambda \mathbf{I})^{-1}\mathbf{k}(\mathbf{x})$$ where $\mathbf{G}=\mathbf{Z}\mathbf{Z}^T$ is called the Gram matrix.
+
+Using RBF kernel
+$$k_{rbf}=\exp\left(\frac{-||\mathbf{x}-\mathbf{x}'||^2}{2}\right)$$
+The resulting decision boundary looks like
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+rbf <- rbfdot(sigma = 1)
+## calculate kernel matrix
+grma<-kernelMatrix(rbf, x)
+ccc<-1*(t(y)%*%solve( grma+fit2$lambda*diag(100) )%*% kernelMatrix(rbf, x, as.matrix(xgrid))>0)
+
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width",main= "iris versicolor vs virginica")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+
+```
+
+
+What have we gained?
+
+\begin{eqnarray*}
+\mathbf{Z}\mathbf{Z}^T &=&
+\left[
+\begin{array}{llll}
+\boldsymbol{\phi}(x_1)\boldsymbol{\phi}(x_1) &\dots&\boldsymbol{\phi}(x_1)\boldsymbol{\phi}(x_n)\\
+&\ddots&\\
+\boldsymbol{\phi}(x_n)\boldsymbol{\phi}(x_1) &\dots&\boldsymbol{\phi}(x_n)\boldsymbol{\phi}(x_n)
+\end{array}
+\right]\\
+&=&
+\left[
+\begin{array}{llll}
+\kappa(\mathbf{x}_1,\mathbf{x}_1) &\dots&\kappa(\mathbf{x}_1,\mathbf{x}_n)\\
+&\ddots&\\
+\kappa(\mathbf{x}_n,\mathbf{x}_1) &\dots&\kappa(\mathbf{x}_n,\mathbf{x}_n)
+\end{array}
+\right]
+\end{eqnarray*}
+
+The matrix $\mathbf{G}=\mathbf{Z}\mathbf{Z}^T$ is called the Gram matrix.
+
+Instead of $\mathbf{X}^T\mathbf{X}$ now we have $\mathbf{Z}\mathbf{Z}^T$
+
+1. computational efficiency when $p>>n$
+2. generalization: kernel function does not need explicit $\boldsymbol{\phi}(x)$
+
+
+#### Kernel SVM
+
+If we let $z_i= \boldsymbol{\Phi}(x_i)$
+
+\begin{eqnarray}
+L_{dual}(\mathbf{a})&=& \sum^n_{i=1} a_i- \frac{1}{2} \sum^n_{i=1} \sum^n_{j=1} a_i a_j y_i y_j \mathbf{z}_i^T\mathbf{z}_j\\
+&=&\sum^n_{i=1} a_i- \frac{1}{2} \sum^n_{i=1} \sum^n_{j=1} a_i a_j y_i y_j \kappa(\mathbf{x}_i,\mathbf{x}_j)
+\end{eqnarray}
+
+$$\mathbf{w}=\sum^n_{i=1} a_iy_i \mathbf{z}_i$$
+
+----
+
+Therefore we have the optimization problem using the kernel function.
+
+$$\mathbf{a}_{SVM}=\arg_{\mathbf{a}} \max\left\{ \sum^n_{i=1} a_i- \frac{1}{2} \sum^n_{i=1} \sum^n_{j=1} a_i a_j y_i y_j\kappa(\mathbf{x}_i,\mathbf{x}_j)\right\}$$
+
+
+s.t,. $\sum^n_{j=1}a_iy_i$ and $a_i\geq0,\forall i=1,\dots, n$
+$$\mathbf{w}=\sum^n_{i=1} a_iy_i \mathbf{x}_i$$
+
+Prediction of new observations can be made as
+$$g(\mathbf{z})=w_0+\mathbf{w}^T\mathbf{z}=w_0+\sum^n_{i=1} a_iy_i \mathbf{z}_i\mathbf{z}
+=w_0+\sum^n_{i\in S} a_iy_i\kappa(\mathbf{x}_i,\mathbf{x})$$
+
+Which shows you only need the support vectors for prediction.
+
+```{r, echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+y=2*(as.integer(iris[51:150,5])-2)-1
+x=as.matrix(iris[51:150,3:4])
+xgrid<-make.grid(x,length.out=40)
+dt=data.frame(y,x)
+svmfit=svm(y~.,data=dt,kernel="radial",cost=1,gamma=5)
+ccc<-1*(predict(svmfit,newdata=xgrid)>0)
+
+plot(xgrid[,1],xgrid[,2],col=rgb(ccc,0,abs(1-ccc),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width",main= "iris versicolor vs virginica")
+points(x[,1],x[,2],col=rgb(1*(y==1),0,abs(1-1*(y==1)),alpha=1))
+points(x[svmfit$index,1],x[svmfit$index,2],pch=3)
+
+ccd<-predict(svmfit,newdata=xgrid,decision.values =TRUE)
+
+contour(unique(xgrid[,1]),unique(xgrid[,2]),matrix(ccd,40,40),
+        levels = 0,add=TRUE)
+```
+
+### Multiclass SVM
+
+You can classify multi-class using binary algorithms like SVM or logistic regression.  SVM in R uses OVO.  We will not go into detail here.
+```{r,echo=FALSE,out.width="60%",fig.height=5, fig.width=5}
+data( iris )
+  # obj <- tune(svm, Species~., data = iris, 
+  #             ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)),
+  #             tunecontrol = tune.control(sampling = "fix")
+  #            )
+
+x<-(iris[,c("Petal.Length","Petal.Width")])
+y<- iris$Species
+model <- svm( x=x,y=y,kernel="radial",cost=1,gamma=1)
+xgrid <- make.grid(x,length.out = 40)
+
+
+ccc<-as.integer(predict(model,as.matrix(xgrid)))
+
+plot(xgrid[,1],xgrid[,2],col=rgb( 1*(ccc==1), 1*(ccc==2), 1*(ccc==3),alpha=0.1),pch=20,
+     xlab="Petal.Length", ylab="Petal.Width", main= "iris versicolor vs virginica")
+
+points(x[,"Petal.Length"],x[,"Petal.Width"],col=iris$Species)
+ccd<-predict(model,newdata=xgrid,decision.values =TRUE)
+ccdx<-attr(ccd,"decision.values")
+contour(unique(xgrid[,1]),unique(xgrid[,2]),matrix(ccdx[,1],40,40),
+        levels = 0,add=TRUE,labels=colnames(ccdx)[1])
+contour(unique(xgrid[,1]),unique(xgrid[,2]),matrix(ccdx[,2],40,40),
+        levels = 0,add=TRUE,labels=colnames(ccdx)[2])
+contour(unique(xgrid[,1]),unique(xgrid[,2]),matrix(ccdx[,3],40,40),
+        levels = 0,add=TRUE,labels=colnames(ccdx)[3])
+```
+
+
+
+### SVR (support vector regression)
+
+SVM is not just for classification.  We can also make use of SVM for a regression problem.
+The idea is like the kernel ridge regression.  In ridge regression, we minimize the penalized likelihood objective function.   This implies every data point has a say in the fit of the model.
+
+To obtain a sparse solution SVM regression uses $\epsilon$ insensitive error function
+
+
+
+```{r,warning=FALSE}
+# create data
+x <- seq(-20,20,0.1)
+y <- sin(x)/(0.3*x+0.001) + rnorm(length(x),sd=0.05)
+data_sim<-data.frame(y,x)
+
+#Scatter Plot
+plot(x,y, main ="Scatter Plot")
+
+#Overlay best-fit line on the scatter plot
+abline(lm(y~x,data=data_sim))
+
+#Load Library
+library(e1071)
+ 
+
+#Regression with SVM
+modelsvm = svm(y~x,data_sim)
+
+#Predict using SVM regression
+predYsvm = predict(modelsvm, data_sim)
+
+#Overlay SVM Predictions on Scatter Plot
+points(data_sim$x, predYsvm, col = "red", pch=16)
+
+#Find value of W
+W = t(modelsvm$coefs) %*% modelsvm$SV
+
+#Find value of b
+b = modelsvm$rho
+
+#Tune the SVM model
+OptModelsvm=tune(svm, y~x,data=data_sim,ranges=list(scale=seq(0,0.01,0.001)))
+
+#Print the optimum value of parameters
+print(OptModelsvm)
+
+#Plot the performance of SVM Regression model
+plot(OptModelsvm)
+
+#Find out the best model
+BstModel=OptModelsvm$best.model
+
+#Predict Y using the best model
+PredYBst=predict(BstModel,data_sim)
+
+
+## Plotting SVR Model and Tuned Model in the same plot
+
+plot(x,y, pch=16)
+points(data_sim$x, predYsvm, col = "blue", pch=3)
+points(data_sim$x, PredYBst, col = "red", pch=4)
+points(data_sim$x, predYsvm, col = "blue", pch=3, type="l")
+points(data_sim$x, PredYBst, col = "red", pch=4, type="l")
+```
+
+### RVM (relevance vector machine) [Tipping, 2001]
+
+RVM is a Bayesian kernel regression similar to kernel ridge regression.
+The likelihood is defined as
+$$p(\mathbf{y}|\mathbf{x},\mathbf{w},\beta,\sigma^2 )=\prod_{i=1}^n N(y_i|f(x_i ),\sigma^2 )$$
+where $$f(\mathbf{x})=\sum_{i=1}^n w_i \kappa(x,x_i)+\beta_0$$
+The prior is defined as 
+$$p(\mathbf{w}|\alpha)=\prod_{i=1}^M N(w_i|0,\alpha_i^{-1})$$
+$$p(\mathbf{w}|y,X,\alpha,\sigma)=N(\mathbf{w}|m,\Sigma)$$
+- $m=1/\sigma^2 \Sigma \boldsymbol{\phi}^T y$
+- $\Sigma =(A+1/\sigma^2  \boldsymbol{\phi}^T\boldsymbol{\phi})^{-1}$
+- $\mathbf{A}=diag(\alpha_i)$
+
+RVM is similar to kernel SVM regression, but its solution is usually more sparse and requires less tuning.
+However, the downside is that they require more computation.  For both SVMR and RVM determining the right sigma for the RBF kernel may be challenging.
+
+```{r}
+# train relevance vector machine
+foo <- rvm(x, y)
+foo
+# print relevance vectors
+alpha(foo)
+RVindex(foo)
+
+# predict and plot
+ytest <- predict(foo, x)
+plot(x, y)
+lines(x, ytest, col="red")
+```
+
+
+### SVM with caret
+https://www.csie.ntu.edu.tw/~cjlin/papers/guide/guide.pdf
+https://www.r-bloggers.com/the-5th-tribe-support-vector-machines-and-caret/
+```{r, eval=FALSE}
+# Training SVM Models
+library(caret)
+library(dplyr)         # Used by caret
+library(kernlab)       # support vector machine 
+library(pROC)	       # plot the ROC curves
+ 
+### Get the Data
+# Load the data and construct indices to divide it into training and test data sets.
+data(segmentationData)  	# Load the segmentation data set
+trainIndex <- createDataPartition(segmentationData$Case,p=.5,list=FALSE)
+trainData <- segmentationData[trainIndex,]
+testData  <- segmentationData[-trainIndex,]
+trainX <-trainData[,4:61]        # Pull out the variables for training
+sapply(trainX,summary)           # Look at a summary of the training data
+
+## SUPPORT VECTOR MACHINE MODEL
+# First pass
+set.seed(1492)
+# Setup for cross validation
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross-validation
+                     repeats=5,		    # do 5 repetitions of cv
+                     summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                     classProbs=TRUE)
+ 
+ 
+#Train and Tune the SVM
+svm.tune <- train(x=trainX,
+                  y= trainData$Class,
+                  method = "svmRadial",   # Radial kernel
+                  tuneLength = 9,					# 9 values of the cost function
+                  preProc = c("center","scale"),  # Center and scale data
+                  metric="ROC",
+                  trControl=ctrl)
+ 
+svm.tune
+
+# Second pass
+# Look at the results of svm.tune and refine the parameter space
+ 
+set.seed(1492)
+# Use the expand.grid to specify the search space	
+grid <- expand.grid(sigma = c(.01, .015, 0.2),
+                    C = c(0.75, 0.9, 1, 1.1, 1.25)
+)
+ 
+#Train and Tune the SVM
+svm.tune <- train(x=trainX,
+                    y= trainData$Class,
+                    method = "svmRadial",
+                    preProc = c("center","scale"),
+                    metric="ROC",
+                    tuneGrid = grid,
+                    trControl=ctrl)
+ 
+svm.tune
+
+#Linear Kernel
+set.seed(1492)                     
+ 
+#Train and Tune the SVM
+svm.tune2 <- train(x=trainX,
+                    y= trainData$Class,
+                    method = "svmLinear",
+                    preProc = c("center","scale"),
+                    metric="ROC",
+                    trControl=ctrl)	
+
+svm.tune2
+
+rValues <- resamples(list(svm=svm.tune,svm.tune2))
+rValues$values
+summary(rValues)
+
+bwplot(rValues,metric="ROC",ylab =c("linear kernel", "radial kernel"))		    # boxplot
+
+```
+
+
+### Kernel smoothing
+
+Kernels help define neighborhoods.  They are useful in finding smoothing lines.
+
+Popular kernels are Epanechnikov
+```{r,eval=TRUE}
+epanechnikov <- function (x) .75 * (1 - x ^ 2) * (abs(x) <= 1)
+curve(epanechnikov,from=-3,3)
+```
+
+Tri Cubic
+```{r,eval=TRUE}
+tri_cubic <- function (x) {
+  ax <- abs(x); 70. / 81 * (1 - ax ^ 3) ^ 3 * (ax <= 1)
+}
+curve(tri_cubic,from=-3,3)
+```
+
+You can do locally weighted regression to fit a smooth line.
+
+```{r,eval=TRUE}
+ks <- function (x, y, b, lambda, D = dnorm, family = gaussian()) { #b=base function
+  function (xp) { # returns f^(xp)
+    K <- function (xi) D(abs(xi - xp) / lambda) # kernel at xp, K(xp,.)
+    w <- sapply(x, K) # weights
+    B <- t(sapply(x, b))
+    km <- glm.fit(B, y, weights = w, family = family) #fit weighted LM to find parameters of that obs 
+    sum(b(xp) * coef(km)) # y^ = f^ = b(xp)' * theta_hat(xp)
+  }
+}
+```
+
+Here is an example from the Elements of Statistical Learning comparing the loess and kernel smoothing method.
+```{r}
+#library(ElemStatLearn)
+bone <- read.table("bone.tab", header = T)
+
+y <- bone$spnbmd[bone$gender == "female"]
+x <- bone$age[bone$gender == "female"]
+
+xp <- seq(from = min(x), to = max(x), length = 200)
+b <- function (x) c(1, x, x ^ 2) # quadratic
+lambda <- 5
+fp <- sapply(xp, ks(x, y, b, lambda,D=tri_cubic))
+
+plot(x, y, pch = 20, col = "gray")
+lines(xp, fp, lwd = 2)
+ox <- order(x)
+lines(x[ox], fitted(loess(y ~ x))[ox], col = "blue", lwd = 2)
+
+```
+

@@ -1,0 +1,1189 @@
+---
+title: "Chapter 7 Lab: Non-linear Modeling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width=12,fig.height=4,fig.align="center" ,out.width="95%")
+pacman::p_load(ISLR
+               ,splines
+               ,gam
+               ,akima
+               ,ggplot2
+               ,HSAUR2
+               ,mboost
+               ,rpart
+               ,mgcv
+               ,wordcloud
+               ,knitr,TTR,zoo)
+
+```
+
+```{css,echo=FALSE}
+.btn {
+    border-width: 0 0px 0px 0px;
+    font-weight: normal;
+    text-transform: ;
+}
+
+.btn-default {
+    color: #2ecc71;
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+```
+
+```{r,echo=FALSE}
+# Global parameter
+show_code <- TRUE
+```
+
+# Class Workbook {.tabset .tabset-fade .tabset-pills}
+
+## In class activity
+### Ames Housing data
+
+Let's revisit Ames Hoursing data.
+```{r}
+library(AmesHousing)
+?ames_raw
+```
+
+### Questions
+
+Use data of `ames_raw` up to 2008 predict the housing price for the later years.
+```{r,echo=show_code}
+ames_raw_2008=ames_raw[ames_raw$`Yr Sold`<2008,]
+ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
+```
+
+Use the same loss function calculator.
+```{r,echo=show_code}
+calc_loss<-function(prediction,actual){
+  difpred <- actual-prediction
+  RMSE <-sqrt(mean(difpred^2))
+  operation_loss<-abs(sum(difpred[difpred<0]))+sum(0.1*actual[difpred>0])
+  return(
+    list(RMSE,operation_loss
+         )
+  )
+}
+```
+
+Use nonlinear methods discussed in ch 7 of the book.  Can you make a better prediction?
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### COVID Data
+
+Let's revisit COVID data.
+I've divided the data into training and testing data.
+```{r}
+Train_COVID<-readRDS("Train_COVID.rds")
+Test_COVID<- readRDS( "Test_COVID.rds")
+```
+
+Try the method discribed in Ch7.  See if you can improve the performance.
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+## Problem Set
+
+### College Data
+
+This question relates to the College data set.
+```{r}
+data(College,package = "ISLR2")
+```
+
+(a) Split the data into a training set and a test set. Using out-of-state tuition as the response and the other variables as the predictors.  Based on exercise from the previous chapters, identify a satisfactory model that uses just a subset of the predictors.
+
+Your code:
+```{r,echo=TRUE}
+library(leaps)
+set.seed(1)
+train <- sample(c(TRUE, FALSE), nrow(College), replace=TRUE)
+test <- (!train)
+attach(College)
+
+reg_fit <- regsubsets(Outstate~., data=College[train, ], nvmax=18)
+regfit_summary <- summary(reg_fit)
+
+par(mfrow = c(1, 3))
+plot(regfit_summary$cp, xlab = "Number of Variables",
+    ylab = "CP", type = "l")
+plot(regfit_summary$bic, xlab = "Number of Variables",
+    ylab = "BIC", type = "l")
+plot(regfit_summary$adjr2, xlab = "Number of Variables",
+    ylab = "Adjusted RSq", type = "l")
+
+which.min(regfit_summary$cp)
+which.min(regfit_summary$bic)
+which.max(regfit_summary$adjr2)
+
+#List names of 6 predictors:
+coef(reg_fit, id=6)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(b) Fit a GAM on the training data, using out-of-state tuition as the response and the features selected in the previous step as the predictors. Plot the results, and explain your findings.
+
+
+Your code:
+```{r,echo=TRUE}
+library(mgcv)
+gam_1 <- lm(Outstate ~ Private + ns(Room.Board, 5) + ns(PhD, 5) + ns(perc.alumni, 5) + ns(Expend, 5) + ns(Grad.Rate, 5), data = College, subset = train)
+
+par(mfrow = c(2,3))
+plot.Gam(gam_1, se = TRUE, col = 'blue')
+```
+
+Your answer:
+Based on the shape of the fit curves, Expend and Grad.Rate are strong non-linear with the Outstate.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(c) Evaluate the model obtained on the test set, and explain the results obtained.
+
+Your code:
+```{r,echo=TRUE}
+pred_gam <- predict(gam_1, newdata = College[test, ])
+RSS <- sum((College[test, ]$Outstate - pred_gam)^2) # based on equation (3.16)
+TSS <- sum((College[test, ]$Outstate - mean(College[test, ]$Outstate)) ^ 2)
+1 - (RSS / TSS)   # based on equation
+```
+
+Your answer:
+The $R^2$ statistic on test set is 0.77.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) For which variables, if any, is there evidence of a non-linear relationship with the response?
+
+Your code:
+```{r,echo=TRUE}
+summary(gam_1)
+```
+
+Your answer:
+Expend has strong non-linear relationshop with the Outstate. Grad.Rate and perc.alumni have moderate non-linear relationship with the Outstate, which coincide with the result of (b).
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+### Auto Data
+
+Fit some of the non-linear models investigated in chapter 7 to the `Auto` data set. Is there evidence for non-linear relationships in this data set? Create some informative plots to justify your answer.
+
+
+Your code:
+```{r,echo=TRUE}
+data(Auto)
+pairs(Auto)
+fit <- lm(mpg ~ cylinders + poly(displacement, 2) + poly(horsepower, 3) + poly(weight, 2), data = Auto)
+summary(fit)
+```
+
+Your answer:
+The results show that there’s no significant relationship between mpg and cylinders. 
+There’s strong relationship between mpg and displacement. 
+There’s strong quadratic relation between mpg and horsepower. 
+There’s strong linear relation between mpg and weight.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Backfitting
+
+GAMs are generally fit using a backfitting approach. The idea behind backfitting is actually quite simple. We will now explore backfitting in the context of multiple linear regression. Suppose that we would like to perform multiple linear regression, but we do not have software to do so. Instead, we only have software to perform simple linear regression. Therefore, we take the following iterative approach: we repeatedly hold all but one coefficient estimate fixed at its current value, and update only that coefficient estimate using a simple linear regression. The process is continued until convergence—that is, until the coefficient estimates stop changing.We now try this out on a toy example.
+
+(a) Generate a response $Y$ and two predictors $X_1$ and $X_2$, with n = 100.
+```{r}
+set.seed(1)
+x1 <- rnorm(100)
+x2 <- rnorm(100)
+y <- rnorm(100)
+```
+
+(b) Initialize $\hat{\beta}_1$ to take on a value of your choice. It does not matter what value you choose.
+```{r}
+beta1 <- 10.18
+```
+
+(c) Keeping $\hat{\beta}_1$ fixed, fit the model $Y-\hat{\beta}_1X_1=\beta_0+\beta_2X_2+\epsilon$ 
+You can do this as follows:
+
+```{r,eval=FALSE}
+a <- y - beta1 * x1
+beta2 <- lm(a ~ x2)$coef [2]
+```
+
+(d) Keeping $\hat{\beta}_2$  fixed, fit the model $Y-\hat{\beta}_2X_2=\beta_0+\beta_1X_1+\epsilon$ 
+You can do this as follows:
+
+```{r,eval=FALSE}
+a <- y - beta2 * x2
+beta1 <- lm(a ~ x1)$coef [2]
+```
+
+(e) Write a for loop to repeat (c) and (d) 1,000 times. 
+Report the estimates of $\hat{\beta}_0$ , $\hat{\beta}_1$ , and $\hat{\beta}_2$ at each iteration of the for loop.  
+Create a plot in which each of these values is displayed, with $\hat{\beta}_0$ , $\hat{\beta}_1$ , and $\hat{\beta}_2$  each shown in a different color.
+
+Your code:
+```{r,echo=TRUE}
+iter <- 10
+beta<- data.frame(0.0, 10.18, 0.0)
+names(beta) <- c('beta0', 'beta1', 'beta2')
+
+for(i in 1:iter) {
+  beta1 <- beta[nrow(beta), 2]
+  a <- y - beta1 * x1
+  beta2 <- lm(a ~ x2)$coef [2]
+  a <- y - beta2 * x2
+  beta1 <- lm(a ~ x1)$coef [2]
+  beta0 <- lm(a ~ x1)$coef [1]
+  print(beta0)
+  print(beta1)
+  print(beta2)
+  beta[nrow(beta) + 1,] <- list(beta0, beta1, beta2)
+}
+
+plot(beta$beta0, col = 'red', type = 'l')
+lines(beta$beta1, col = 'blue')
+lines(beta$beta2, col = 'green')
+```
+
+
+(f) Compare your answer in (e) to the results of simply performing multiple linear regression to predict $Y$ using $X_1$ and $X_2$. Use the abline() function to overlay those multiple linear regression coefficient estimates on the plot obtained in (e).
+
+Your code:
+```{r,echo=TRUE}
+plot(beta$beta0, col = 'red', type = 'l')
+lines(beta$beta1, col = 'blue')
+lines(beta$beta2, col = 'green')
+
+res <- coef(lm(y ~ x1 + x2))
+abline(h = res[1], col = 'darkred', lty = 2)
+
+abline(h = res[2], col = 'darkblue', lty = 2)
+abline(h = res[3], col = 'darkgreen', lty = 2)
+```
+
+
+
+Your answer:
+The coefficients from iterations and multiple regression are exactly the same.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(g) On this data set, how many backfitting iterations were required in order to obtain a "good" approximation to the multiple regression coefficient estimates?
+
+Your answer:
+For this data set, 3 iterations are enough to converge.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(h) In a toy example with p = 100, show that one can approximate the multiple linear regression coefficient estimates by repeatedly performing simple linear regression in a backfitting procedure. How many backfitting iterations are required in order to obtain a "good" approximation to the multiple regression coefficient estimates? Create a plot to justify your answer.
+
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Boston Data
+
+This question uses the variables dis (the weighted mean of distances to five Boston employment centers) and nox (nitrogen oxides concentration in parts per 10 million) from the Boston data. We will treat dis as the predictor and nox as the response.
+
+(a) Use the poly() function to fit a cubic polynomial regression to predict nox using dis. Report the regression output, and plot the resulting data and polynomial fits.
+
+Your code:
+```{r,echo=TRUE}
+library(MASS)
+fit_bos <- lm(nox~poly(dis, 3), data=Boston)
+summary(fit_bos)
+attach(Boston)
+
+dislims=range(dis)
+plot(dis, nox, xlim=dislims, cex = .5, col = "darkgrey")
+title("Degree-3 Polynomial", outer = T)
+dis.grid=seq(dislims[1], dislims[2])
+pred_fit <- predict(fit_bos, newdata=list(dis=dis.grid), se=TRUE)
+se.bands <- cbind(pred_fit$fit + 2 * pred_fit$se.fit,
+    pred_fit$fit - 2 * pred_fit$se.fit)
+lines(dis.grid, pred_fit$fit, lwd = 2, col = "blue")
+matlines(dis.grid, se.bands, lwd = 1, col = "blue", lty = 3)
+
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(b) Plot the polynomial fits for a range of different polynomial degrees (say, from 1 to 10), and report the associated residual sum of squares.
+
+
+Your code:
+```{r,echo=TRUE}
+rss <- rep(NA,10)
+for (i in 1:10) {
+  fit_pol <- lm(nox~poly(dis,i), data=Boston)
+  rss[i] <- sum(fit_pol$residual^2)
+}
+plot(1:10, rss, type="l", xlab="Degree", ylab="RSS")
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(c) Perform cross-validation or another approach to select the optimal degree for the polynomial, and explain your results.
+
+
+Your code:
+```{r,echo=TRUE}
+library(boot)
+testMSE <- rep(NA,10)
+for (i in 1:10) {
+  fit_select <- glm(nox~poly(dis, i), data=Boston)
+  testMSE[i] <- cv.glm(Boston, fit_select, K=10)$delta[1]
+}
+plot(1:10, testMSE, type="l", xlab = "degree", ylab="Test MSE")
+points(which.min(testMSE), testMSE[which.min(testMSE)], col="red", pch=19)
+```
+
+Your answer:
+So the optimal degree is 3.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) Use the bs() function to fit a regression spline to predict nox using dis. Report the output for the fit using four degrees of freedom. How did you choose the knots? Plot the resulting fit.
+
+
+Your code:
+```{r,echo=TRUE}
+library(splines)
+df=4
+fit_ns <- lm(nox~bs(dis, df), data=Boston)
+attr(bs(Boston$dis, df = df), "knots")
+
+plot(dis, nox, xlim=dislims, cex = .5, col = "darkgrey")
+title("Degree-3 Polynomial", outer = T)
+pred_fit <- predict(fit_ns, newdata=list(dis=dis.grid), se=TRUE)
+se.bands <- cbind(pred_fit$fit + 2 * pred_fit$se.fit,
+    pred_fit$fit - 2 * pred_fit$se.fit)
+lines(dis.grid, pred_fit$fit, lwd = 2, col = "blue")
+matlines(dis.grid, se.bands, lwd = 1, col = "blue", lty = 3)
+```
+
+Your answer:
+For degree of freedom (4) equals to the sum of the number of knots and degree, and the default degree is 3, there is 1 knot.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(e) Now fit a regression spline for a range of degrees of freedom, and plot the resulting fits and report the resulting RSS. Describe the results obtained.
+
+
+Your code:
+```{r,echo=TRUE}
+res <- c()
+df.range <- 3:10
+for (dof in df.range) {
+  fit <- lm(nox ~ bs(dis, df = dof), data = Boston)
+  res <- c(res, sum(fit$residuals ^ 2))
+}
+plot(df.range, res, type = 'l', xlab = 'degree of freedom', ylab = 'RSS')
+```
+
+Your answer:
+From the results, df = 10 is good enough.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(f) Perform cross-validation or another approach in order to select the best degrees of freedom for a regression spline on this data. Describe your results.
+
+
+Your code:
+```{r,echo=TRUE}
+res <- c()
+for (dof in df.range) {
+  fit <- glm(nox ~ bs(dis, df = dof), data = Boston)
+  testMSE <- cv.glm(Boston, fit, K = 10)$delta[1]
+  res <- c(res, testMSE)
+}
+
+plot(df.range, res, type = 'l', xlab = 'degree of freedom', ylab = 'Test MSE')
+points(which.min(res) + 2, res[which.min(res)], col = 'red', pch = 19)
+```
+
+Your answer:
+According to test MSE, df = 8 is a good choice.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+
+
+## Additional Material
+
+
+### Local regression
+
+Starting with one predictor, we want to estimate a function $f$ that describes the outcome of interest $y$ such that
+$$y=f(x)+\epsilon$$
+where $\epsilon$ is some error.
+
+In linear regression we made assumption about the functional form to be a line
+$$f(x)=\alpha+\beta x$$ 
+where $\alpha$ is the intercept and $\beta$ is the slope. This simplification allowed us to summarize the relationship between the two variables using just one number $\beta$.  In reality this is gross simplification and in particular when accuracy of prediction is of importance more than descrpition of the trend in the relationship, we may want to use more flexible methods.
+
+For example if your data looks like the following.  What do you do?
+
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE}
+# example based on 
+# http://www.stat.cmu.edu/~cshalizi/uADA/12/lectures/ch04.pdf
+x  <- runif(300,0,3)
+yf <- sin(x)*cos(20*x)+rnorm(length(x),0,0.15)
+yg <- log((x)^2-x+1)+rnorm(length(x),0,0.15)
+dt <- data.frame(x,yf,yg)
+dt <- dt[order(x),]
+gridExtra::grid.arrange(
+ggplot(dt)+geom_point()+aes(x=x,y=yf)+
+  stat_function(fun=function(x)sin(x)*cos(20*x),color="blue",alpha=0.7),
+ggplot(dt)+geom_point()+aes(x=x,y=yg)+
+  stat_function(fun=function(x)log((x)^2-x+1),color="blue",alpha=0.7)
+,ncol=2)
+```
+
+clearly, linear relation does not hold globally.  Even in such case we could look at local relationship and then sew them together to get a global picture.
+
+#### Running means or the nearest neighbor
+
+The simplest way to estimat $f$ at $x_i$ locally is by averaging the $y$’s corresponding to $x$’s near $x_i$.  
+$$\hat{f}(x_i)=\sum_{j\in N(x_i)} y_j / n_i$$
+where $N(x_i)$ indexes $n_i$ neighbors of $x_i$.
+
+$N(x_i)$ can be defined as you wish but most popular choice is to use
+ a symmetric neighborhood consisting of the nearest $2k + 1$ points:
+
+$$N(x_i) = { max(i-k, 1), \dots, i-1, i, i + 1,\dots, min(i+k, n) }.$$
+
+For example, if we were to use 10 closest points so that
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE}
+colors=ifelse(1:300%in%(145:155),"black","grey")
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color=colors)+aes(x=x,y=yf)+geom_point(aes(x=dt$x[150],y=mean(dt$yf[145:155])),color="red"),
+ggplot(dt)+geom_point(color=colors)+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")
+,ncol=2)
+```
+
+If we keep repeating the procedure for each point and connect the dots together we get.
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE,warning=FALSE}
+
+rmenf <- zoo::rollapply(dt, 
+          width = 11, by=1, 
+          FUN = function(z) {
+           mean(data.frame(z)$yf)
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+rmeng <- zoo::rollapply(dt, 
+          width = 11, by=1, 
+          FUN = function(z) {
+           mean(data.frame(z)$yg)
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_line(aes(x=dt$x,y=rmenf),color="red"),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")+geom_line(aes(x=dt$x,y=rmeng),color="red")
+,ncol=2)
+```
+
+It looks surprisingly well on the left but it's clearly too wigly on the right.  Usually ends are pretty bad and we can't use points at the ends that do not have observations.
+
+If we increase the neighborhood size to 20
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE,warning=FALSE}
+
+rmenf <- zoo::rollapply(dt, 
+          width = 21, by=1, 
+          FUN = function(z) {
+           mean(data.frame(z)$yf)
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+rmeng <- zoo::rollapply(dt, 
+          width = 21, by=1, 
+          FUN = function(z) {
+           mean(data.frame(z)$yg)
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_line(aes(x=dt$x,y=rmenf),color="red"),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")+geom_line(aes(x=dt$x,y=rmeng),color="red")
+,ncol=2)
+```
+Now the left side is too smooth and the right side looks more decent.
+
+
+### Running Line
+Instead of using a simple mean, we can fit a regression at each neighborhood.  Then make a prediction at each $x_i$ so that
+$$\hat{f} ( x_i ) = \hat{\alpha}_i + \hat{\beta}_i x_i ,$$
+where $\hat{\alpha}_i$ and $\hat{\beta}_i$ are OLS estimates based on points in a neighborhood $N(x_i)$ of $x_i$. This is actually easy to do thanks to well-known regression updating formulas. Extension to weighted data is obvious. Much better than running means.
+
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE,warning=FALSE}
+library(zoo)
+Coeff <- zoo::rollapply(dt, 
+          width = 11, by=1, 
+          FUN = function(z) {
+            predict(lm(yf~x, data=as.data.frame(z)))[6]
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+Coefg <- zoo::rollapply(dt, 
+          width = 11, by=1, 
+          FUN = function(z) {
+            predict(lm(yg~x, data=as.data.frame(z)))[6]
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_line(aes(x=dt$x,y=Coeff),color="red"),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")+geom_line(aes(x=dt$x,y=Coefg),color="red")
+,ncol=2)
+```
+
+If we were to increase the neighborhood size to 20
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE,warning=FALSE}
+library(zoo)
+Coeff <- zoo::rollapply(dt, 
+          width = 21, by=1, 
+          FUN = function(z) {
+            predict(lm(yf~x, data=as.data.frame(z)))[6]
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+Coefg <- zoo::rollapply(dt, 
+          width = 21, by=1, 
+          FUN = function(z) {
+            predict(lm(yg~x, data=as.data.frame(z)))[6]
+          },
+          by.column = FALSE, align = "center",fill = NA ) 
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_line(aes(x=dt$x,y=Coeff),color="red"),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")+geom_line(aes(x=dt$x,y=Coefg),color="red")
+,ncol=2)
+```
+
+### Weighted running means (Kernel Smoothers)
+An alternative approach is to use a weighted running mean, with weights that decline as one moves away from the target value. To calculate $\hat{f}(x_i)$, the $j$th point receives weight
+$$w_{ij}=\frac{c_i}{\lambda}d\left(\frac{|x_i-x_j|}{\lambda}\right)$$,
+\begin{itemize}
+\item $\lambda$ is a tunning constant called the window width or bandwidth
+\item $c_i$ is a normalizing constant so the weights add up to one for each $x_i$
+\item $d()$ is any kernel such as
+\begin{itemize}
+\item Gaussian density,
+\item Epanechnikov: 
+\begin{eqnarray*}
+d(t) =
+\begin{cases}
+    3/4 (1 -t^2) & \text{if $t^2 < 1$} \\
+    0 & \text{other wise}
+  \end{cases}
+\end{eqnarray*}
+\item Minimum var:
+\begin{eqnarray*}
+d(t) =
+\begin{cases}
+    3/8 (3 -5t^2) & \text{if $t^2 < 3/5$} \\
+    0 & \text{other wise}
+  \end{cases}
+\end{eqnarray*}
+\item tri-cube: 
+\begin{eqnarray*}
+d(t) =
+\begin{cases}
+   70/81 (1-|t|^3)^3 & \text{if $0 \leq t \leq 1$} \\
+    0 & \text{other wise}
+  \end{cases}
+\end{eqnarray*}
+\end{itemize}
+\end{itemize}
+```{r,echo=FALSE, fig.width=12,fig.height=3 ,out.width="90%",message=FALSE}
+par(mfrow=c(1,4))
+curve(dnorm,from=-3,3,main="Gaussian")
+Epanechnikov<-function(x,lambda=1) {ifelse((abs(x)/lambda)^2<1,(1/lambda)*(3/4)*(1-(abs(x)/lambda)^2),0)}
+curve(Epanechnikov,from=-3,3,main="Epanechnikov")
+
+MinimumVar<-function(x,lambda=1) {ifelse((abs(x)/lambda)^2<3/5,(1/lambda)*(3/8)*(3-5*(abs(x)/lambda)^2),0)}
+curve(MinimumVar,from=-3,3,main="Minimum var")
+Tricube<-function(x,lambda=1) {ifelse((abs(x)/lambda)<1,(70/81)*(1-abs(x)^3)^3,0)}
+curve(Tricube,from=-3,3,main="tri-cube")
+```
+
+As you can see from the figures, some Kernels are local because there is a border where things don't matter.  Whereas Gaussian kernel is an example of a global Kernel because all the points contribute.
+
+Using Epanechnikov kernel with lambda 0.05 and 0.2.
+
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+w=outer(dt$x,dt$x,function(x,y,lambda=0.05) {ifelse((abs(x-y)/lambda)^2<1,(1/lambda)*(3/4)*(1-(abs(x-y)/lambda)^2),0)})
+w=w/rowSums(w)
+w2=outer(dt$x,dt$x,function(x,y,lambda=0.2) {ifelse((abs(x-y)/lambda)^2<1,(1/lambda)*(3/4)*(1-(abs(x-y)/lambda)^2),0)})
+w2=w2/rowSums(w2)
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_line(aes(x=dt$x,y=w%*%dt$yf),color="red"),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_point(aes(x=dt$x[150],y=mean(dt$yg[145:155])),color="red")+geom_line(aes(x=dt$x,y=w2%*%dt$yg),color="red")
+,ncol=2)
+```
+
+### Loess/Lowess
+
+- Loess in nutshell is a locally weighted running line smoother. 
+- It is the default smoother in ggplot when you call `geom_smooth`.
+- To calculate $\hat{f}(x_i)$ 
+\begin{itemize}
+\item find a symmetric nearest neighborhood of $x_i$,
+\item find the distance from $x_i$ to the furthest neighbor and use this as $\lambda$,
+\item use a tri-cube weight function 
+\begin{eqnarray*}
+d(t) =
+\begin{cases}
+   70/81 (1-|t|^3)^3 & \text{if $0 \leq t \leq 1$} \\
+    0 & \text{otherwise}
+  \end{cases}
+\end{eqnarray*}
+\item estimate a local line using these weights, take the fitted value at $x_i$ as $\hat{f}(x_i)$.
+\end{itemize}
+
+A variant uses robust regression in each neighborhood.
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_smooth(method="loess",se=F),
+ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yg)+geom_smooth(method="loess",se=F)
+,ncol=2)
+```
+
+By default setting loess did not work well on the left example.  In order to take into account of small bandwidth you need to specify the span option.
+```{r,echo=FALSE, fig.width=10,fig.height=9 ,out.width="80%",message=FALSE}
+gridExtra::grid.arrange(
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_smooth(method="loess",span=0.3,se=F),
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_smooth(method="loess",span=0.1,se=F),
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_smooth(method="loess",span=0.05,se=F),
+  ggplot(dt)+geom_point(color="gray")+aes(x=x,y=yf)+geom_smooth(method="loess",span=0.03,se=F)
+,ncol=2)
+```
+
+
+### Other useful functions
+
+Scatter plot smoothing with loess
+```{r, fig.width=6,fig.height=5 ,out.width="60%",message=FALSE}
+require(graphics)
+with(cars, scatter.smooth(speed, dist, lpars =
+                    list(col = "red", lwd = 3, lty = 3)))
+```
+
+Kernel Regression Smoother
+```{r, fig.width=6,fig.height=5 ,out.width="60%",message=FALSE}
+require(graphics)
+with(cars, {
+    plot(speed, dist)
+    lines(ksmooth(speed, dist, "normal", bandwidth = 2), col = "red")
+    lines(ksmooth(speed, dist, "normal", bandwidth = 5), col = "blue")
+    legend("topright",legend=c("bandwidth = 2","bandwidth = 5"),col=c("red","blue"),lty=1,lwd=2,cex=.8)
+})
+```
+
+2D Kernel density estiate
+```{r, fig.width=6,fig.height=5 ,out.width="60%",message=FALSE}
+n <- 10000
+x1  <- matrix(rnorm(n), ncol = 2)
+x2  <- matrix(rnorm(n, mean = 3, sd = 1.5), ncol = 2)
+x   <- rbind(x1, x2)
+
+oldpar <- par(mfrow = c(2, 2), mar=.1+c(3,3,1,1), mgp = c(1.5, 0.5, 0))
+smoothScatter(x, nrpoints = 0)
+```
+
+
+
+### Splines
+
+Splines are used for interpolation and smoothing.
+
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="90%",message=FALSE}
+# ggplot(cars)+geom_point()+aes(x=speed,y=dist)+
+#   geom_smooth(method="lm",color="blue")+
+#   geom_smooth(method="loess",color="red")
+# cited example from http://www.stat.cmu.edu/~cshalizi/uADA/12/lectures/ch04.pdf
+x = runif(300,0,3)
+yf = sin(x)*cos(20*x)+rnorm(length(x),0,0.15)
+yg = log((x)^2-x+1)+rnorm(length(x),0,0.15)
+dt<-data.frame(x,yf,yg)
+dt<- dt[order(x),]
+n <- 9
+xi <- 1:n
+yi <- rnorm(n)
+gridExtra::grid.arrange(
+ggplot(data.frame(xi,yi))+geom_point()+aes(x=xi,y=yi),
+ggplot(dt)+geom_point()+aes(x=x,y=yg)+stat_function(fun=function(x)log((x)^2-x+1),color="blue",alpha=0.7)
+,ncol=2)
+```
+
+On the left we see 9 points observed across the span of $x$ and the goal is to fit a line through these points not necessarily to find a linear trend.  On the left is a case where we see a bend in the data and the idea is there is to find a reasonable line that represents this cloud of data.
+
+Initial starting point is to fit a streight line and glue them together. We can do so by fitting regression to subset of the data.  
+
+```{r,echo=FALSE, fig.width=10,fig.height=4 ,out.width="80%0%",message=FALSE}
+
+dt$co<-factor(1*(dt$x>0.5)+1)
+gridExtra::grid.arrange(
+ggplot(data.frame(xi,yi))+geom_point()+geom_line()+aes(x=xi,y=yi),
+ggplot(dt)+geom_point(alpha=0.2)+aes(x=x,y=yg,color=co)+geom_smooth(method="lm",se=F)+theme(legend.position="none")
+,ncol=2)
+
+```
+
+The problem as clear from the figure above is that result is not necessarily smooth or continuous at where the lines meet, which is called the knots.  Spline is a popular method to achive continuity at the knots.
+
+### Splines 
+
+A spline is a piece-wise polynomial with pieces defined by a sequence of knots
+$$\eta_1 <\eta_2<\cdots<\eta_k$$
+such that the pieces join smoothly at the knots.
+
+The simplest case is a linear spline with one knot $\eta_1$
+$$S(x)=\beta_0+\beta_1 x +\gamma ( x-\eta_1)_{+}$$
+term $( x - \eta_1)_{+}$ is 0 until $x$ is larger than $\eta_1$.  
+<!-- Which means up to $\eta_1$, $S(x)=\beta_0+\beta_1 x$ and after $\eta_1$    -->
+<!-- $S(x)=a(\beta_0 - \gamma\eta_1)+(\beta_1+\gamma) x$.   -->
+
+
+```{r,echo=FALSE, fig.width=5,fig.height=4 ,out.width="80%",message=FALSE}
+## Fit model
+plot1 <- ggplot(data = dt,
+                mapping = aes(x = x, y = yg)) +geom_point(alpha=0.3)
+lm1 <- lm(formula = yg ~ bs(x, df = NULL, knots = c(0.5), degree = 1),
+          data    = dt)
+## Create a data frame to hold prediction
+newdat <- data.frame(x = seq(from = min(dt$x), 
+                                 to = max(dt$x), by = 0.01))
+## Predict
+newdat$yg <- predict(lm1, newdata = newdat)
+## Plot the previous plot with a regression line
+plot1 + geom_line(data = newdat, color = "red")+stat_function(fun=function(x)log((x)^2-x+1),color="blue",alpha=0.7,lty="dashed")
+```
+
+For a spline of degree $m$ one usually requires the polynomials and their
+first $m - 1$ derivatives to agree at the knots, so that $m - 1$ derivatives are continuous.
+A spline of degree $m$ can be represented as a power series:
+
+$$S(x)=\sum^m_{j=0}\beta_0 x^j+\sum^k_{j=1}\gamma_j(x-\eta_j)^{m}_{+}$$
+
+The most popular splines are cubic splines:
+$$S(x)= \beta_0 +\beta_1x+\beta_2x^2+\beta_3x^3+\sum^k_{j=1}\gamma_j(x-\eta_j)^3_{+}$$
+
+```{r,echo=FALSE, fig.width=5,fig.height=4 ,out.width="80%",message=FALSE}
+## Fit model
+plot1 <- ggplot(data = dt,
+                mapping = aes(x = x, y = yg)) +geom_point(alpha=0.3)
+lm1 <- lm(formula = yg ~ bs(x, df = NULL, knots = c(0.5), degree = 3),
+          data    = dt)
+## Create a data frame to hold prediction
+newdat <- data.frame(x = seq(from = min(dt$x), 
+                                 to = max(dt$x), by = 0.01))
+## Predict
+newdat$yg <- predict(lm1, newdata = newdat)
+## Plot the previous plot with a regression line
+plot1 + geom_line(data = newdat, color = "red")+stat_function(fun=function(x)log((x)^2-x+1),color="blue",alpha=0.7,lty="dashed")+geom_vline(xintercept=c(0.5),lty=3)
+```
+
+
+#### Interpolating Splines
+Supose we know the values of a function at $k$ points $x_1 < \dots < x_k$ and would like to interpolate for other $x$’s.
+If we were to use a spline of degree $m$ with knots at the observed $x$’s, we would have $m + 1 + k$ parameters to estimate with only $k$ observations. Obviously we need some restrictions.
+
+```{r, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+gridExtra::grid.arrange(
+ggplot(women)+aes(x=height,y=weight)+geom_point(),
+ggplot(data.frame(xi,yi))+aes(x=xi,y=yi)+geom_point()
+,ncol=2)
+```
+
+
+#### Natural Splines
+A spline of odd degree $m = 2\nu-1$ is called a natural spline if it is a polynomial of degree $\nu - 1$ outside the range of the knots (i.e. below $\eta_1$ or above $\eta_k$).
+A natural cubic spline ($\nu=2$) is linear outside the range of the data. 
+For a natural spline
+\begin{eqnarray*}
+\beta_j &=& 0 \mbox{ for } j=\nu,\dots,2\nu-1 \\
+\sum^k_{i=1}\gamma_i\eta_i^j &=&0 \mbox{ for } j=0,1,\dots,\nu-1.
+\end{eqnarray*}
+
+This imposes exactly $m + 1$ restrictions, so we have $k$ parameters left. Note that a natural cubic spline has the form
+
+$$S(x)=\beta_0 +\beta_1 x+ \sum^k_{j=1}\gamma_j(x-\eta_j)^3_{+}$$,
+subject to the restrictions
+$\sum \gamma_j =0$ and $\sum \gamma_j\eta_j =0$
+so we end up with $k$ parameters. 
+
+```{r, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+library(splines)
+require(graphics); require(stats)
+ispl  <- interpSpline( women$height, women$weight ,bSpline=TRUE)
+ispl2 <- interpSpline( weight ~ height,  women ,bSpline=TRUE)
+# ispl and ispl2 should be the same
+par(mfrow = c(1,2), mgp = c(2,.8,0), mar = 0.1+c(3,3,3,1))
+
+#par(mfrow=c(1,2))
+plot( predict( ispl, seq( 55, 75, length.out = 51 ) ), type = "l" )
+points( women$height, women$weight )
+#plot( ispl )    # plots over the range of the knots
+#points( women$height, women$weight )
+#splineKnots( ispl )
+
+ispl2 <- interpSpline( yi ~ xi ,bSpline=TRUE)
+plot(predict( ispl2, seq( -1, 10, length.out = 51 ) ), type = "l")
+points(xi,yi)
+```
+
+
+#### Spline Regression
+
+Consider now the problem of smoothing a scatterplot.
+```{r, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+gridExtra::grid.arrange(
+ggplot(dt)+aes(x=x,y=yg)+geom_point(),
+ggplot(Auto)+aes(x=mpg,y=acceleration)+geom_point()
+,ncol=2)
+```
+
+One approach is to select s suitable set of knots with $k << n$ and then fit a spline by OLS (or WLS, or maximum likelihood).
+
+For a cubic spline, this amounts to regressing $y$ on $k + 4$ predictors, namely
+$1,x,x_2,x_3,(x-\eta_1)^3_{+},(x-\eta_2)^3_{+},...,(x-\eta_k)^3_{+}$
+For a natural cubic spline we would drop $x^2$ and $x^3$ and impose the additional constraints
+  $$\sum\gamma =  \sum \gamma\eta = 0.$$
+Actually, these constraints can be eliminated by suitable re-parametrization. For example a natural cubic spline with two interior knots plus one knot at each extreme of the data can be fit by regressing $y$ on three covariates, $x$, $z_1$ and $z_2$, where
+ and
+$$z_1 = ( x - \eta_1 )^3_{+} -\frac{ ( \eta_1 - \eta_4 )} {(\eta_3 - \eta_4)} ( x - \eta_3 )^3_{+}$$
+$$z_2 = ( x - \eta_2 )^3_{+} -\frac{( \eta_2 - \eta_4 )} {(\eta_3 - \eta_4)}( x - \eta_3 )^3_{+} .$$
+
+#### B-Splines
+
+A much better representation of splines for computation is as linear combinations of a set of basis splines called B-splines. These are numerically more stable, among other reasons because each B-spline is non-zero over a limited range of knots. They are not so easy to calculate, but fortunately R and S have functions for calculating a basis, see bs for B-splines and ns for natural B-splines.
+Regression splines are very popular because they are easy to use, and can be incorporated without difficulty as part of other estimation procedures.
+The main problem is where to place the knots. Often they are placed at selected percentiles. A smarter strategy would place more knots in regions where $f(x)$ is changing more rapidly. Knot placement is an arcane art form, and the first disadvantage cited by detractors of regression splines.
+
+```{r, fig.width=10,fig.height=4 ,out.width="80%",message=FALSE}
+gridExtra::grid.arrange(
+ggplot(dt)+aes(x=x,y=yg)+geom_point(),
+ggplot(Auto)+aes(x=mpg,y=acceleration)+geom_point()
+,ncol=2)
+xxmpg=seq(9,46.6,by=0.1)
+predac=predict(lm(acceleration~bs(mpg,df=5),data=Auto),
+                   newdata=data.frame(mpg=xxmpg))
+plot(Auto$mpg,Auto$acceleration)
+lines(xxmpg,predac,col="red")
+
+```
+
+#### Smoothing Splines
+
+A more formal approach to the problem is to consider fitting a spline with knots at every data point, so potentially it could fit perfectly, but estimate its parameters by minimizing the usual sum of squares plus a roughness penalty.
+A suitable penalty is to integrate the squared second derivative, leading to the following criterion, known as the penalized sum of squares:
+
+$$PSS =  (y_i-S(x_i))^2 + \lambda(S''(x))^2dx$$
+
+where integration is over the range of x and $\lambda$ is a tuning parameter. As $\lambda\rightarrow 0$ we impose no penalty and end up with a very close fit, but the resulting curve could be very noisy as it follows every detail in the data. As $\lambda\rightarrow \infty$ the penalty dominates and the solution converges to the OLS line, which is as smooth as you can get (the second derivative is always 0), but may be a very poor fit.
+Amazingly, it can be shown that minimizing the PSS for a fixed $\lambda$ over the space of all continuous differentiable functions leads to a unique solution, and this solution is a natural cubic spline with knots at the data points.
+More generally, penalizing the squared v-th derivative leads to a natural spline of degree $2\nu-1$. For a proof see Reinsch (1967).
+
+```{r}
+smooth.spline2 <- function(formula, data, ...) { 
+  mat <- model.frame(formula, data) 
+  smooth.spline(mat[, 2], mat[, 1]) 
+} 
+ 
+predictdf.smooth.spline <- function(model, xseq, se, level) { 
+  pred <- predict(model, xseq) 
+  data.frame(x = xseq, y = pred$y) 
+} 
+ 
+qplot(mpg, wt, data = mtcars) + geom_smooth(method = "smooth.spline2", se= F)
+qplot(x, yg, data = dt) + geom_smooth(method = "smooth.spline2", se= F)
+
+```
+#### Cross-Validation
+We have solved the problem of knot placement, but now we have to pick an appropriate value for $\lambda$. Some claim this is easier, because we are left with a single number to worry about.
+Wabba and others have suggested a technique know as cross-validation. Let $S_{\lambda}(-i)$ denote the spline fit with tuning parameter $\lambda$ while omitting the i-th observation. We can compare this fit with the observed value $y_i$, and
+we can summarize these differences by computing a sum of squares
+$$CVSS(\lambda) = \sum_{i=1}^{n} (y_i-\hat{S}_{\lambda} (x_i))^2 $$
+ which depends on $\lambda$. The idea is to pick $\lambda$ to minimize the $CVSS(\lambda)$.
+This sounds like a lot of work but in fact it isn’t, thanks again to regression updating formulas, which can be used to show that
+$$CVSS(\lambda) = \sum_{i=1}^{n} \frac{(y_i - \hat{S}_{\lambda} (x_i))^2}{ 1 - A_{ii}}$$
+
+where $A_{ii}$ is a diagonal element of $A = (I - \lambda K)-1$. This extends easily to WLS.
+An alternative criterion is to replace the Aii by their average, which is $tr(A)/n$. This leads to a generalized CVSS that has been found to work well in practice.
+
+
+
+
+### basis function plotting
+
+Basis function are mysterious but once you get what bs and ns are doing it's pretty neat.
+
+#### linear
+
+```{r,echo=show_code}
+fit1=lm(wage~bs(age,degree=1,knots=c(25,40,60)),data=Wage)
+bs.weight1<-fit1$coefficients[-1]/sum(fit1$coefficients[-1])
+bs.age1<-with(Wage,bs(age,degree=1,knots=c(25,40,60)))
+xage=seq(18,80,by=1)
+pred.bs.age1<- predict(bs.age1,newx=xage)
+```
+
+```{r,echo=show_code}
+par(mfrow=c(1,3))
+plot(range(xage),c(0,1),type="n")
+for(i in 1:4) lines(xage,pred.bs.age1[,i])
+plot(range(xage),c(0,1),type="n")
+for(i in 1:4) lines(xage,bs.weight1[i]*pred.bs.age1[,i])
+plot(Wage$age,Wage$wage,col="gray")
+lines(xage,fit1$coefficients[1]+pred.bs.age1%*%fit1$coefficients[-1],type="l")
+```
+
+#### quadratic
+
+```{r,echo=show_code}
+fit2=lm(wage~bs(age,degree=2,knots=c(25,40,60)),data=Wage)
+bs.weight2<-fit2$coefficients[-1]/sum(fit2$coefficients[-1])
+bs.age2<-with(Wage,bs(age,degree=2,knots=c(25,40,60)))
+xage=seq(18,80,by=1)
+pred.bs.age2<- predict(bs.age2,newx=xage)
+```
+
+```{r,echo=show_code}
+par(mfrow=c(1,3))
+plot(range(xage),c(0,1),type="n")
+for(i in 1:5) lines(xage,pred.bs.age2[,i])
+plot(range(xage),c(0,1),type="n")
+for(i in 1:5) lines(xage,bs.weight2[i]*pred.bs.age2[,i])
+plot(Wage$age,Wage$wage,col="gray")
+lines(xage,fit2$coefficients[1]+pred.bs.age2%*%fit2$coefficients[-1],type="l")
+```
+
+#### cubic
+```{r,echo=show_code}
+fit3=lm(wage~bs(age,knots=c(25,40,60)),data=Wage)
+bs.age<-with(Wage,bs(age,knots=c(25,40,60)))
+xage=seq(18,80,by=1)
+pred.bs.age<- predict(bs.age,newx=xage)
+```
+
+
+```{r,echo=show_code}
+par(mfrow=c(1,3))
+plot(range(xage),c(0,1),type="n")
+for(i in 1:6) lines(xage,pred.bs.age[,i])
+plot(range(xage),c(0,1),type="n")
+for(i in 1:6) lines(xage,bs.weight1[i]*pred.bs.age[,i])
+plot(Wage$age,Wage$wage,col="gray")
+lines(xage,fit3$coefficients[1]+pred.bs.age%*%fit3$coefficients[-1],type="l")
+```
+
+
+### Manually drawing the interval
+
+If you want to draw confidence interval and prediction interval the easiest thing to do is to use the predict function in R.
+
+```{r,fig.width=6,fig.height=5 ,out.width="60%"}
+# create random data
+set.seed(12345)
+x <- c(1:100)
+y <- sin(pi*x/50)+rnorm(100,0,0.4)
+epsilon <- rnorm(100, 0, 3)
+knots <- c(10, 20, 30, 40, 50, 60, 70, 80, 90)
+
+# Fit a natural spline
+myFit <- lm(y ~ ns(x, knots = knots))
+
+# Plot the result
+plot(x,y)
+lines(x,predict(myFit))
+# Confidence interval
+lines(x,predict(myFit,interval="confidence")[,"upr"],lty=2)
+lines(x,predict(myFit,interval="confidence")[,"lwr"],lty=2)
+# Prediction interval
+lines(x,predict(myFit,interval="prediction")[,"upr"],lty=3)
+lines(x,predict(myFit,interval="prediction")[,"lwr"],lty=3)
+
+# How the point wise standard error is created
+# One way is to grab the model matrix from the fitted object
+X        <- model.matrix(myFit)
+sigma    <- summary(myFit)$sigma
+var.Yhat <- (diag(X %*% solve(t(X) %*% X) %*% t(X))) * sigma^2
+mean(predict(myFit,se.fit = TRUE)$se.fit-sqrt(var.Yhat) )
+
+# Another option is to call ns function
+ppe      <-predict(myFit,interval="confidence",se.fit = TRUE)
+X.new    <- cbind(1, ns(c(50:150), knots=knots))
+var.Yhat <- (diag(X.new %*% solve(t(X) %*% X) %*% t(X.new)) + 1) * sigma^2
+mean(predict(myFit,newdata =data.frame(x= c(50:150)),se.fit = TRUE)$se.fit-sqrt(var.Yhat) )
+```
+
+### using mgcv gam
+
+There are two popular packages for fitting GAM in R.  
+
+- `gam`
+- `mgcv`
+
+The authors of the book like `gam`.  But `mgcv` is better at doing some things because they are Bayesian. The key difference is that `gam` uses smoothing spline whereas `mgcv` uses p-spline.  Also the uncertainty interval is Bayesian for `mgcv`, which tend to be better calibrated.
+
+#### kyphosis example (gam)
+
+84 Children at the Toronto Hospital for Sick Children underwent Laminectomy, a corrective spinal surgery for a variety of abnormalities under the general heading kyphosis.
+Results: 65 successes, 19 kyphosis still present.
+Goal: Try to understand/predict whether the operation will be successful
+
+```{r}
+data(kyphosis,  package = "gam")
+```
+
+```{r}
+detach("package:gam", unload=TRUE)
+library(mgcv)
+
+layout(matrix(1:3, nrow = 1))
+spineplot(Kyphosis ~ Age, data = kyphosis,
+           ylevels = c("present", "absent"))
+spineplot(Kyphosis ~ Number, data = kyphosis,
+           ylevels = c("present", "absent"))
+spineplot(Kyphosis ~ Start, data = kyphosis,
+          ylevels = c("present", "absent"))
+           
+kyphosis_gam <- gam(Kyphosis ~ s(Age, bs = "cr") +
+      s(Number, bs = "cr", k = 3) + s(Start, bs = "cr", k = 3),
+      family = binomial, data = kyphosis)
+
+trans <- function(x)
+      binomial()$linkinv(x)
+
+layout(matrix(1:3, nrow = 1))
+plot(kyphosis_gam, select = 1, shade = TRUE, trans = trans )
+plot(kyphosis_gam, select = 2, shade = TRUE, trans = trans )
+plot(kyphosis_gam, select = 3, shade = TRUE, trans = trans )
+
+```
+
+
+### Other Examples
+
+
+#### Air polution example (HSAUR2)
+Air pollution data of 41 US cities. The annual mean concentration of sulphur dioxide, in micrograms per cubic metre, is a measure of the air pollution of the city. The question of interest here is what aspects of climate and human ecology as measured by the other six variables in the data determine pollution?
+
+```{r}
+library(mgcv)
+data(USairpollution,  package = "HSAUR2")
+
+USairpollution_gam <- gam(SO2 ~ s(wind, bs = "cr") +
+      s(log(temp), bs = "cr", k = 3) + s(log(precip), bs = "cr", k = 3)+ s(log(popul), bs = "cr", k = 3)
+      + s(log(manu), bs = "cr", k = 3)+ s(log(predays), bs = "cr", k = 3),data = USairpollution)
+
+SO2hat <- predict(USairpollution_gam)
+SO2 <- USairpollution$SO2
+plot(SO2hat, SO2 - SO2hat, type = "n", 
+     xlim = c(-30, 110), ylim = c(-30, 60))
+textplot(SO2hat, SO2 - SO2hat, rownames(USairpollution), 
+         show.lines = FALSE, new = FALSE)
+abline(h = 0, lty = 2, col = "grey")
+
+layout(matrix(1:6, nrow = 1))
+plot(USairpollution_gam, select = 1, shade = TRUE )
+plot(USairpollution_gam, select = 2, shade = TRUE )
+plot(USairpollution_gam, select = 3, shade = TRUE )
+plot(USairpollution_gam, select = 4, shade = TRUE )
+plot(USairpollution_gam, select = 5, shade = TRUE )
+plot(USairpollution_gam, select = 6, shade = TRUE )
+```
+

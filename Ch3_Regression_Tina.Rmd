@@ -1,0 +1,985 @@
+---
+title: "Regression"
+<<<<<<< HEAD
+author: "Jiaqi Sun"
+=======
+author: "Tina"
+>>>>>>> da13435dbacdc4340e67488c686b82002dce6067
+date: "2022-12-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message=FALSE,fig.align="center",fig.width=7,fig.height=2.5)
+pacman::p_load(
+       car
+      , ggplot2
+      , ggExtra
+      , reshape2
+      , corrplot
+      , RColorBrewer
+      , lubridate
+      , AmesHousing
+      )
+```
+
+```{css,echo=FALSE}
+.btn {
+    border-width: 0 0px 0px 0px;
+    font-weight: normal;
+    text-transform: ;
+}
+
+.btn-default {
+    color: #2ecc71;
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+```
+
+```{r,echo=FALSE}
+# Global parameter
+show_code <- TRUE
+```
+
+# Class Workbook {.tabset .tabset-fade .tabset-pills}
+
+## In class activity
+### Ames Housing data
+
+Please take a look at the Ames Hoursing data.
+```{r,echo=show_code}
+library(AmesHousing)
+?ames_raw
+```
+
+The goal of this exercise is to predict the price of the house.
+
+Here is a histogram of the sales price with red line showing the mean.
+
+```{r,echo=show_code}
+ggplot(ames_raw) +
+  geom_histogram(fill="skyblue") +
+  aes(x=SalePrice) +
+  geom_vline(xintercept = mean(ames_raw$SalePrice),col="red")
+
+summary(ames_raw$SalePrice)
+```
+
+Initial linear model without a predictor
+```{r,echo=show_code}
+lmfit_null<- lm(SalePrice~1,ames_raw)
+summary(lmfit_null)
+```
+
+How good is this result?  Let's look at RMSE.
+The root-mean-square error (RMSE) is a frequently used measure of the differences between values (sample or population values) predicted by a model and the values observed.
+
+```{r,echo=show_code}
+sqrt(mean((ames_raw$SalePrice-predict(lmfit_null))^2))
+sqrt(mean(residuals(lmfit_null)^2))
+```
+
+Since the price is right skewed lets log transformation the outcome
+
+```{r,echo=show_code}
+ggplot(ames_raw)+
+  geom_histogram(fill="skyblue")+
+  aes(x=SalePrice)+
+  geom_vline(xintercept = exp(mean(log(ames_raw$SalePrice))),col="red")+
+  scale_x_log10()
+```
+
+Fitting the same model on the log transformed outcome
+```{r,echo=show_code}
+lmfit_null_log<- lm(log(SalePrice)~1,ames_raw)
+summary(lmfit_null_log)
+```
+
+RMSE is
+```{r,echo=show_code}
+sqrt(mean((ames_raw$SalePrice-exp(predict(lmfit_null_log)))^2))
+```
+
+Notice that the RMSE is actually bigger with log transformed model.
+
+So should we not transform?  What do we get from the transformation?
+
+Here is the prediction uncertainty overlayed on the histogram.
+
+```{r,echo=show_code}
+intpred=predict(lmfit_null,interval="prediction")
+
+ggplot(ames_raw)+
+  geom_histogram(fill="skyblue")+
+  aes(x=SalePrice)+
+  geom_vline(xintercept = mean(ames_raw$SalePrice),col="red")+
+  geom_vline(xintercept = intpred[1,2],col="red",lty=2)+
+  geom_vline(xintercept = intpred[1,3],col="red",lty=2)
+```
+
+```{r,echo=show_code}
+intpredlog=predict(lmfit_null_log,interval="prediction")
+
+ggplot(ames_raw)+
+  geom_histogram(fill="skyblue")+
+  aes(x=SalePrice)+
+  geom_vline(xintercept = exp(mean(log(ames_raw$SalePrice))),col="red")+
+  scale_x_log10()+
+  geom_vline(xintercept = exp(intpredlog[1,2]),col="red",lty=2)+
+  geom_vline(xintercept = exp(intpredlog[1,3]),col="red",lty=2)
+```
+
+The log model seem to have a better uncertainty estimate.  What good does that do?
+
+Let’s say the model is for an algorithm that buys the house.  
+If you pay more than the true price the company buys. If the price is lower, then the company fails to buy.
+- If you bought for more than the true value you’ve over paid.
+- If you bid less and lost, you lost a profit of the 10% of the house price.
+
+Based on such loss function what is our overall loss if we base our decision on this model?
+```{r,echo=show_code}
+allres<-residuals(lmfit_null)
+abs(sum(allres[allres<0]))+sum(0.1*(coef(lmfit_null)+allres[allres>0]))
+```
+
+```{r,echo=show_code}
+allreslog<-ames_raw$SalePrice-exp(predict(lmfit_null_log))
+
+abs(sum(allreslog[allreslog<0]))+sum(0.1*(exp(coef(lmfit_null_log))+allreslog[allreslog>0]))
+```
+
+As you can see with a better calibrated model you have a better performance for more realistic loss.
+
+
+### Adding predictor `Gr Liv Area`
+
+We add a predictor `Gr Liv Area`
+
+```{r,fig.width=7,fig.height=4,echo=show_code}
+p=ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Gr Liv Area`,y=SalePrice)+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)
+
+p3 <- ggMarginal(p, margins = 'both', fill="skyblue", size=4,type="histogram")
+p3
+```
+
+
+
+Using `Gr Liv Area` as predictor
+```{r,fig.width=9,fig.height=6,echo=show_code}
+lmfit_liv_area_0<- lm(SalePrice~`Gr Liv Area`,ames_raw)
+lmfit_liv_area_1<- lm(log(SalePrice)~`Gr Liv Area`,ames_raw)
+lmfit_liv_area_2<- lm(log(SalePrice)~log(`Gr Liv Area`),ames_raw)
+
+gridExtra::grid.arrange(
+ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Gr Liv Area`,y=SalePrice)+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE),
+ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Gr Liv Area`,y=SalePrice)+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)+
+  scale_y_log10(),
+ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Gr Liv Area`,y=SalePrice)+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)+
+  scale_y_log10()+
+  scale_x_log10(),
+qplot(predict(lmfit_liv_area_0),residuals(lmfit_liv_area_0))+
+  geom_smooth(method="rlm")+
+  geom_hline(yintercept = 0,lty=2),
+qplot(predict(lmfit_liv_area_1),residuals(lmfit_liv_area_1))+
+  geom_smooth(method="rlm")+
+  geom_hline(yintercept = 0,lty=2),
+qplot(predict(lmfit_liv_area_2),residuals(lmfit_liv_area_2))+
+  geom_smooth(method="rlm")+
+  geom_hline(yintercept = 0,lty=2),
+ncol=3
+)
+```
+
+Because of the skewness it's better to take log on both x and y.
+
+```{r,fig.width=7,fig.height=4,echo=show_code}
+p=ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Gr Liv Area`,y=SalePrice)+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)+
+  scale_y_log10()+
+  scale_x_log10()
+
+p3 <- ggMarginal(p, margins = 'both', fill="skyblue", size=4,type="histogram")
+p3
+```
+
+```{r,fig.width=6,fig.height=4,echo=show_code}
+lm_mod_1 <- lm(log(SalePrice)~log(`Gr Liv Area`),ames_raw)
+summary(lm_mod_1)
+```
+
+However, the residual still shows heterogeneous spread.
+```{r,fig.width=6,fig.height=4,echo=show_code}
+plot(predict(lm_mod_1),resid(lm_mod_1),main="residual plot");abline(h=0,lty=2,col="grey")
+
+library(quantreg)
+
+qu<-rq(resid(lm_mod_1)~predict(lm_mod_1),tau = c(0.1, 0.9))
+
+colors <- c("#ffe6e6", "#ffcccc", "#ff9999", "#ff6666", "#ff3333",
+            "#ff0000", "#cc0000", "#b30000", "#800000", "#4d0000", "#000000")
+            
+for (j in 1:ncol(qu$coefficients)) {
+    abline(coef(qu)[, j], col = colors[j])
+}
+```
+
+Did we reduce the residual variability?
+```{r,fig.width=7,fig.height=4,echo=show_code}
+logSalePrice<-log(ames_raw$SalePrice)
+clogSalePricec <-logSalePrice-mean(logSalePrice)
+rlogSalePricec<-resid(lm_mod_1)
+
+labs<-c("mean","regression")
+names(labs)<-c("clogSalePricec","rlogSalePricec")
+
+ggplot(melt(data.frame(clogSalePricec,rlogSalePricec)))+
+  geom_histogram(fill="skyblue")+
+  aes(x=value,color=variable)+
+  geom_vline(xintercept = 0,col="red")+
+  facet_grid(variable~.,labeller = labeller(variable = labs))
+
+anova(lm_mod_1)
+```
+
+Looking at correlation with predictors.
+
+```{r,fig.width=9,fig.height=7,echo=show_code}
+#`Lot Area`,`Year Built`,`Year Remod/Add`,`Total Bsmt SF`,`1st Flr SF`,`2nd Flr SF`,`Low Qual Fin SF`,`Gr Liv Area`,`Full Bath`,`Half Bath`,`Bsmt Full Bath`,`Bsmt Half Bath`,`TotRmsAbvGrd`,`Garage Area`,`Wood Deck SF`,`Open Porch SF`,`Pool Area`,`Sale Type`
+
+M <-cor(ames_raw[,c("Lot Area","Year Built","Year Remod/Add","Total Bsmt SF","1st Flr SF","2nd Flr SF","Low Qual Fin SF","Gr Liv Area","Full Bath","Half Bath","Bsmt Full Bath","Bsmt Half Bath","TotRms AbvGrd","Garage Area","Wood Deck SF","Open Porch SF","Pool Area","SalePrice")],use="pairwise.complete.obs")
+
+corrplot(M, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+
+```{r,fig.width=9,fig.height=7,echo=show_code}
+mames<-melt(ames_raw[,c("Lot Area","Year Built","Year Remod/Add","Total Bsmt SF","1st Flr SF","2nd Flr SF","Low Qual Fin SF","Gr Liv Area","Full Bath","Half Bath","Bsmt Full Bath","Bsmt Half Bath","TotRms AbvGrd","Garage Area","Wood Deck SF","Open Porch SF","Pool Area","SalePrice")],id.vars = "SalePrice")
+
+ggplot(mames)+
+  geom_point()+
+  aes(x=value,y=SalePrice)+
+  facet_wrap(variable~.,scales = "free")
+
+```
+
+### thinking about the `Lot Area`
+
+When looking at lot area, its no surprise to have some relationship with the price.
+But the relationship is not clear linear one.  Why?
+
+```{r,fig.width=6,fig.height=4,echo=show_code}
+ggplot(ames_raw)+
+  geom_point()+
+  aes(x=`Lot Area`,y=SalePrice)+
+  xlab("Lot size in square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)+
+  scale_y_log10()+
+  scale_x_log10()#+facet_grid(~`Bedroom AbvGr`)
+```
+
+If you look at this by the neighborhood it become obvious how in some places size matters more than others.
+
+```{r,fig.width=9,fig.height=7,echo=show_code}
+ggplot(ames_raw)+
+  geom_point(alpha=0.3)+
+  aes(x=`Lot Area`, y=SalePrice,color=factor(Neighborhood))+
+  xlab("Above grade (ground) living area square feet")+
+  ylab("Sale Price")+
+  geom_smooth(method="lm",se=FALSE)+
+  scale_y_log10()+
+  scale_x_log10()+
+  theme(legend.position = "none")+
+  facet_wrap(~Neighborhood)
+
+# sqrt(mean(residuals(lmfit_null)^2))
+# intpred=predict(lmfit_null,interval="prediction")
+# 
+# allres<-residuals(lmfit_null)
+
+```
+
+### Considering Time
+
+It seems the price is fairly stable over the years.
+
+```{r,warning=FALSE,echo=show_code}
+ames_raw$saledt <- ym(paste0(ames_raw$`Yr Sold`,"-",ames_raw$`Mo Sold`))
+
+rolling_median <- function(formula, data, n_roll = 11, ...) {
+  x <- data$x[order(data$x)]
+  y <- data$y[order(data$x)]
+  y <- zoo::rollmedian(y, n_roll, na.pad = TRUE)
+  structure(list(x = x, y = y, f = approxfun(x, y)), class = "rollmed")
+}
+
+predict.rollmed <- function(mod, newdata, ...) {
+  setNames(mod$f(newdata$x), newdata$x)
+}
+
+p=ggplot(ames_raw)+
+  geom_point()+
+  aes(x=saledt,y=SalePrice)+
+  xlab("Sale Date")+
+  ylab("Sale Price")+
+  scale_y_log10()+
+  geom_smooth(se=FALSE)+
+  geom_smooth(formula = y ~ x, method = "rolling_median",se=FALSE)
+
+p3 <- ggMarginal(p, margins = 'y', fill="skyblue", size=4,type="histogram")
+p3
+
+```
+
+### Prediction of future based on data upto 2008
+
+To make the project more realistic, I will split the data into before 2008 and after.
+
+The data up to 2008 will be the training data nd after will be the testing data.
+```{r,echo=show_code}
+ames_raw_2008=ames_raw[ames_raw$`Yr Sold`<2008,]
+ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
+```
+
+Fitting the null model on the training data
+```{r,echo=show_code}
+lmfit_null_2008     <- lm(SalePrice~1,ames_raw_2008)
+lmfit_null_log_2008 <- lm(log(SalePrice)~1,ames_raw_2008)
+```
+
+Comparing the MSE
+```{r,echo=show_code}
+sqrt(mean((ames_raw_2009$SalePrice-predict(lmfit_null,newdata=ames_raw_2009))^2))
+sqrt(mean((ames_raw_2009$SalePrice-exp(predict(lmfit_null_log,newdata=ames_raw_2009)))^2))
+```
+
+Comparing the business loss
+```{r,echo=show_code}
+allres_2009=ames_raw_2009$SalePrice-predict(lmfit_null,newdata=ames_raw_2009)
+abs(sum(allres_2009[allres_2009<0]))+sum(0.1*(coef(lmfit_null_2008)+allres_2009[allres_2009>0]))
+
+allreslog_2009<-(ames_raw_2009$SalePrice-exp(predict(lmfit_null_log,newdata=ames_raw_2009)))
+abs(sum(allreslog_2009[allreslog_2009<0]))+sum(0.1*(exp(coef(lmfit_null_log_2008))+allreslog_2009[allreslog_2009>0]))
+```
+
+
+### In class activity
+
+Use data of `ames_raw` up to 2008 predict the housing price for the later years.
+```{r,echo=show_code}
+ames_raw_2008=ames_raw[ames_raw$`Yr Sold`<2008,]
+ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
+```
+
+
+Use the following loss function calculator.
+```{r,echo=show_code}
+calc_loss<-function(prediction,actual){
+  difpred <- actual-prediction
+  RMSE <-sqrt(mean(difpred^2))
+  operation_loss<-abs(sum(difpred[difpred<0]))+sum(0.1*actual[difpred>0])
+  return(
+    list(RMSE,operation_loss
+         )
+  )
+}
+```
+
+Here are few rules:
+- You care not allowed to use the test data.
+- You cannot use automatic variable selection.
+- You need to explain why you added each variable.
+
+```{r,eval=FALSE,echo=show_code}
+lmfit_2008<- lm(SalePrice ~ `Gr Liv Area`  + `1st Flr SF` + `Year Built` + `Full Bath` + `Garage Area` + `Lot Area` + `Overall Qual`, data=ames_raw_2008)
+# ["your model here"] # use ames_raw_2008
+summary(lmfit_2008)
+```
+
+When you decide on your model use the following to come up with your test loss.
+```{r,eval=FALSE,echo=show_code}
+pred_2009<-predict(lmfit_2008,newdata=ames_raw_2009)
+calc_loss(pred_2009,ames_raw_2009$SalePrice)
+```
+
+Try to answer the following additional questions.
+
+- Does your model indicate a good fit?  If not where is the fit off?
+
+
+Your code:
+```{r,echo=TRUE}
+par(mfrow=c(2,2))
+plot(lmfit_2008)
+```
+
+Your answer: 
+ok fit.
+where off: 78% of the variation of the response is explained by the predictors, while we check the diagnostics plots, we found leverage points and the residuals are heterogeneous spread.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+- Should you include all the predictors? Why?
+No, because not all the predictors are significant to the response variable.
+
+Your code:
+```{r,echo=TRUE}
+# fit_all <- lm(SalePrice~., data = ames_raw_2008)
+# summary(fit_all)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+- What interaction makes sense?  Does your model indicate signs of interaction?
+
+
+Your code:
+```{r,echo=TRUE}
+
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+- Is there evidence of non-linear association between any of the predictors and the response? To answer this question, for each predictor, fit a model with polynomial terms up to 3rd order.
+
+The first plot shows a pattern (U-shaped) between the residuals and the fitted values. This indicates a non-linear relationship between the predictor and response variables. 
+
+Your code:
+```{r,echo=TRUE}
+fit_pol <- lm(lmfit_2008<- lm(SalePrice ~ poly(`Gr Liv Area`,2)  + poly(`1st Flr SF`,2) + poly(`Year Built`,2) + `Full Bath` + `Garage Area` + `Lot Area` + `Overall Qual`, data=ames_raw_2008))
+summary(fit_pol)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+## Problem Set
+### [Problems] Linear Regression Problems
+
+8. This question involves the use of simple linear regression on the `Auto` data set.
+(a) Use the lm() function to perform a simple linear regression with mpg as the response and horsepower as the predictor. Use the summary() function to print the results.
+
+Your code:
+```{r,echo=TRUE}
+library(MASS); library(ISLR)
+head(Auto)
+fit_auto <- lm(mpg~horsepower, data = Auto)
+summary(fit_auto)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+Comment on the output.
+For example:
+
+i. Is there a relationship between the predictor and the response?
+yes, there is.
+The null hypothesis: $\beta_{horsepower}$ equal to zero.
+with p value <2e-16, we reject the null hypothesis and thus there is a statistically significant relationship between horsepower and mpg.
+
+ii. How strong is the relationship between the predictor and the response?
+Multiple R-squared:  0.6059, suggesting that 60.59% of the variation in the response variable(mpg) is explained/reduced by our predictor (horsepower).
+
+iii. Is the relationship between the predictor and the response positive or negative?
+The estimate of horsepower is -0.157845, so the relationship is negative.
+
+iv. What is the predicted mpg associated with a horsepower of 98? 
+What are the associated 95% confidence and prediction intervals?
+mpg=39.935861+-0.157845*98= 24.5
+
+```{r}
+predict(fit_auto, data.frame(horsepower=98), interval="confidence")
+predict(fit_auto, data.frame(horsepower=98), interval="prediction")
+```
+
+(b) Plot the response and the predictor. Use the `abline()` function to display the least squares regression line.
+
+Your code:
+```{r,echo=TRUE}
+attach(Auto)
+plot(horsepower, mpg)
+abline(fit_auto, lwd = 3, col = "red")
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(c) Use the `plot()` function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.
+
+Your code:
+```{r,echo=TRUE}
+par(mfrow=c(2,2))
+plot(fit_auto)
+```
+
+Your answer:
+The first plot shows a pattern (U-shaped) between the residuals and the fitted values.
+This indicates a non-linear relationship between the predictor and response variables.
+The second plot shows that the residuals are normally distributed. 
+The third plot shows that the variance of the errors is constant. 
+Finally, the fourth plot indicates that there are no leverage points in the data.
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+
+9. This question involves the use of multiple linear regression on the `Auto` data set.
+
+(a) Produce a scatterplot matrix which includes all of the variables in the data set.
+
+Your code:
+```{r,echo=TRUE}
+data("Auto")
+pairs(Auto)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(b) Compute the matrix of correlations between the variables using the function cor(). You will need to exclude the name variable, cor() which is qualitative.
+
+Your code:
+```{r,echo=TRUE}
+names(Auto)
+cor(Auto[, names(Auto) != "name"])
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(c) Use the lm() function to perform a multiple linear regression with mpg as the response and all other variables except name as the predictors. Use the summary() function to print the results.
+
+Your code:
+```{r,echo=TRUE}
+fit_all <- lm(mpg~.-name, data=Auto)
+summary(fit_all)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+Comment on the output. For instance:
+i. Is there a relationship between the predictors and the response?
+Testing the hypothesis H0: βi=0 ∀i.
+Multiple R-squared:  0.8215, 82% of the variation of the response is explained by the predictors.
+
+ii. Which predictors appear to have a statistically significant relationship to the response?
+By checking the p-values associated with each predictor’s t-statistic. We may conclude that “displacement”, “weight”, “year”, and “origin” have a statistically significant relationship while “cylinders”, “horsepower” and “acceleration” do not.
+
+iii. What does the coefficient for the year variable suggest?
+The estimate coefficient for the year variable is 0.750773, suggesting that the average effect of a unit increase of year is an increase of 0.7507727 in “mpg” (all other predictors remaining constant). 
+
+(d) Use the plot() function to produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit. Do the residual plots suggest any unusually large outliers? Does the leverage plot identify any observations with unusually high leverage?
+
+Your code:
+```{r,echo=TRUE}
+par(mfrow=c(2,2))
+plot(fit_all)
+```
+
+Your answer:
+The first plot shows a pattern (U-shaped) between the residuals and the fitted values. This indicates a non-linear relationship between the predictor and response variables. 
+The second plot shows that the residuals are normally distributed. 
+The third plot shows that the variance of the errors is constant. 
+Finally, the fourth plot indicates that there are leverage points in the data.
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(e) Use the * and : symbols to fit linear regression models with interaction effects. Why did you add the interaction?  Explain using the context of the problem.  
+Do any interactions appear to be statistically significant?  
+
+Your code:
+```{r,echo=TRUE}
+fit_int <- lm(mpg~.-name-cylinders-acceleration+year:origin+displacement:weight+
+                  displacement:weight+acceleration:horsepower+acceleration:weight, data=Auto)
+summary(fit_int)
+```
+
+Your answer:
+The R-squared statistics estimates that 87% of the changes in the response can be explained by this particular set of predictors (single and interaction.) A higher value was not obtained from the trials.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(f) Try a few different transformations of the variables, such as $log(X)$, $\sqrt{X}$, $X^2$. Comment on your findings.
+
+This question should be answered using the Carseats data set.
+
+(a) Fit a multiple regression model to predict Sales using Price, Urban, and US.
+
+Your code:
+```{r,echo=TRUE}
+fit_multi <- lm(Sales~Price+Urban+US, data=Carseats)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(b) Provide an interpretation of each coefficient in the model. Be careful—some of the variables in the model are qualitative!
+
+Your code:
+```{r,echo=TRUE}
+summary(fit_multi)
+```
+
+Your answer: 
+For a one unit increase in Price of Car, the Sales of Cars decreases by 0.0544 units, keeping all other variables constant.
+If the Car is in Urban Region, the Sales of the Car decreases by 0.0219 units, keeping all other variables constant.
+If the variable US is Yes, then the Sales of the Car increases by 1.200 units, keeping all other variables constant.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(c) Write out the model in equation form, being careful to handle the qualitative variables properly.
+
+Your code:
+```{r,echo=TRUE}
+# Price = 13.04 - 0.05 * Price -0.02 * UrbanYes + 1.2 * USYes
+```
+
+Your answer: 
+Price = 13.04 - 0.05 * Price -0.02 * UrbanYes + 1.2 * USYes
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) For which of the predictors can you reject the null hypothesis $H_0 :\beta_j = 0$?
+
+Your answer: 
+For Price and US we can Reject the Null Hypothesis, as p-values for each individual predictor variables is <<< 0.05, hence they are significant at 5% significance level.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(e) On the basis of your response to the previous question, fit a smaller model that only uses the predictors for which there is evidence of association with the outcome.
+
+Your code:
+```{r,echo=TRUE}
+fit_new <- lm(Sales ~ Price + US, data=Carseats)
+summary(fit_new)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+
+(f) How well do the models in (a) and (e) fit the data?
+
+
+Your answer:
+As R2 = 0.2393, hence a very low variability in Sales i.e. 23.93% can be explained by Price, Urban and US alone. Either the model needs to be improved by fitting a more complex curve to the data or these variables are not enough informative and we need to find and add more informative variables to our analysis.
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(g) Using the model from (e), obtain 95% confidence intervals for the coefficient(s).
+
+Your code:
+```{r,echo=TRUE}
+confint(fit_new)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(h) Is there evidence of outliers or high leverage observations in the model from (e)?
+
+
+Your answer: 
+```{r}
+par(mfrow = c(2, 2))
+plot(fit_new)
+```
+
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+## Additional Material
+
+### K-nn regression
+
+You can do KNN regression using FNN package.
+Read more about it here:
+https://daviddalpiaz.github.io/r4sl/knn-reg.html
+
+```{r, eval=FALSE}
+library(FNN)
+knn.reg(train = ?, test = ?, y = ?, k = ?)
+```
+
+- train: the predictors of the training data
+- test: the predictor values,  x, at which we would like to make predictions
+- y: the response for the training data
+- k: the number of neighbors to consider
+
+
+### [Advanced] Predictive Modeling Platforms in R
+
+There are few platforms in R that does predictive modeling.
+These platforms are wrappers around other packages that makes it easy to do routine tasks.
+
+- mlr3 (https://mlr3book.mlr-org.com)
+- tidymodels (https://www.tidymodels.org/)
+- caret (https://topepo.github.io/caret/)
+- h2o (https://docs.h2o.ai/h2o/latest-stable/h2o-r/docs/index.html)
+
+```{r,echo=show_code}
+# split the data
+index <- sample(1:nrow(ames_raw), 0.7*nrow(ames_raw))
+vars <- c("SalePrice","Lot Area","Gr Liv Area","Full Bath")
+train <- ames_raw[ index, vars]
+test  <- ames_raw[-index, vars]
+colnames(train) <- make.names(colnames(train))
+colnames(test)  <- make.names(colnames(test))
+
+# mlr3 TaskRegr
+train$SalePrice <- log(train$SalePrice)
+```
+
+
+#### Prediction using mlr3
+
+MLR3 is a useful ML platform on R.
+You can learn about it here:
+https://mlr3book.mlr-org.com
+There is MLR and MLR3.  It's better to use 3 since MLR is no longer actively developed.
+
+```{r,echo=show_code}
+# load packages and data
+library(mlr3)
+library(mlr3learners)
+
+# fit a model
+
+task <- as_task_regr(train, target ="SalePrice",id = "ames_raw")
+
+# TaskRegr$new(id = "ames_raw", backend = train, target ="SalePrice")
+learner <- lrn("regr.lm", predict_type = "response")
+learner$train(task)
+prediction=predict(learner,newdata=test)
+```
+
+#### Prediction using [tidymodels](https://www.tidymodels.org/)
+
+Tidymodels is another one of the tidy family that is similar to mlr3.
+https://www.tidymodels.org/
+
+```{r,echo=show_code}
+# load packages and data
+library(tidymodels)
+library(dotwhisker)
+# fit a model
+rec <- recipe(SalePrice ~ ., data = train) 
+
+clf <- linear_reg() 
+
+wflow <- workflow() %>%
+         add_recipe(rec) %>%
+         add_model(clf)
+
+lm_fit <- wflow %>% fit(data = train)
+prediction=predict(lm_fit,new_data=test)
+tidy(lm_fit) %>% 
+  dwplot(dot_args = list(size = 2, color = "black"),
+         whisker_args = list(color = "black"),
+         vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+
+```
+
+#### Prediction using caret
+
+```{r,echo=show_code}
+# load packages and data
+library(caret)
+
+# fit a model
+ctrl <- trainControl(method = "none")
+lm_model <- train(SalePrice ~ ., data = train, method = "lm", trControl = ctrl)
+
+prediction=predict(lm_model,newdata = test)
+
+```
+
+#### Prediction using h2o
+
+H2O is a cross platform library that is popular in the predictive modeling space.  They work well out of box and can be called from any platform independent of the language used.  Making it work on R could sometimes be a headache.  So try using H2O but if you cannot make it work, I recommend you leave this section alone.
+
+
+If you are on Mac you will need to install Java (http://www.java.com ).
+
+```{r,echo=show_code,eval=FALSE}
+install.packages("h2o")
+# load packages and data
+library(h2o)
+packageVersion("h2o")
+```
+
+
+##### Starting H2O
+
+To use H2O you need to instantiate it.
+
+```{r,echo=show_code,eval=FALSE}
+# nthreads specifies number of threads. -1 means use all the CPU cores.
+# max_mem_size specifies the maximum amount of RAM to use.
+localH2O <- h2o.init(nthreads = -1, max_mem_size="4g")
+```
+
+You can access H2O instance using the web UI FLOW by typing 
+ http://localhost:54321
+ in your browser.
+
+##### Serving the data to H2O
+
+Since H2O is not in R, you need to tell it to use your data.
+
+```{r,echo=show_code,eval=FALSE}
+train_hf <- as.h2o(train)
+test_hf <- as.h2o(test)
+```
+
+##### Fitting GLM
+```{r h2o_fit_glm,echo=show_code,eval=FALSE}
+gaussian.fit = h2o.glm(y = "SalePrice",                               #response variable 
+                       x = c("SalePrice","Lot.Area","Gr.Liv.Area","Full.Bath"),  #predictor variables
+                      training_frame = train_hf,                  #data
+                      family = "gaussian",lambda = 0)           #specify the dist. of y and penalty parameter: lambda
+gaussian.fit
+
+prediction=predict(gaussian.fit,newdata = test_hf)
+h2o.exportFile(prediction, "/tmp/pred.csv", force = TRUE) #export prediction result as a file
+
+```
+
+##### Saving and loading the model
+
+```{r,echo=show_code,eval=FALSE}
+# save the model
+model_path <- h2o.saveModel(object=gaussian.fit, path=getwd(), force=TRUE)
+print(model_path)
+
+# load the model
+saved_model <- h2o.loadModel(model_path)  #extract the saved model
+saved_model
+```
+
+##### Shut down H2O
+```{r}
+h2o.shutdown(prompt =F) 
+```
+

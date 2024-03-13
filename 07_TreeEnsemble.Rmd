@@ -1,0 +1,1021 @@
+---
+title: "Tree based Ensemble"
+author: "Masanao Yajima"
+date: "2023-01-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message=FALSE,fig.align="center",fig.width=7,fig.height=2.5)
+pacman::p_load(
+       car
+      , gbm
+      , ggplot2
+      , ggExtra
+      , reshape2
+      , corrplot
+      , RColorBrewer
+      , lubridate
+      , AmesHousing
+      , caretEnsemble
+      , rpart
+      , partykit
+      , pROC
+      , RWeka
+      , caret
+      , xgboost
+      )
+```
+
+```{css,echo=FALSE}
+.btn {
+    border-width: 0 0px 0px 0px;
+    font-weight: normal;
+    text-transform: ;
+}
+
+.btn-default {
+    color: #2ecc71;
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+```
+
+```{r,echo=FALSE}
+# Global parameter
+show_code <- TRUE
+```
+
+# Class Workbook {.tabset .tabset-fade .tabset-pills}
+
+## In class activity
+
+### Bank Credit Data
+
+Please take a look at the following credit scoring data set. This data was used to predict defaults on consumer loans. The data contains  1000 rows and 21 variables:
+
+```{r}
+credit_data <- read.csv("credit_data.csv")
+```
+
+Here are the variables.
+
+- BAD: factor, GOOD/BAD for whether a customer has defaulted on a loan. This is the outcome or target in this dataset
+- Account_status: factor, status of existing checking account
+- Duration: numeric, loan duration in month
+- Credit_history: factor, previous credit history
+- Purpose: factor, loan purpose
+- Amount: numeric, credit amount
+- Savings: factor, savings account/bonds
+- Employment: factor, present employment since
+- Installment_rate: numeric, installment rate in percentage of disposable income
+- Guarantors: factor, other debtors / guarantors
+- Resident_since: factor, present residence since
+- Property: factor, property
+- Age: numeric, age in years
+- Other_plans: factor, other installment plans (bank ,none, stores )
+- Housing: factor, housing
+- Num_credits: numeric, Number of existing credits at this bank
+- Job: factor, job( management / self-employed / highly qualified employee / officer; skilled employee / official ; unemployed / unskilled - non-resident ; unskilled - resident )
+- People_maintenance: numeric, number of people being liable to provide maintenance for
+- Phone: factor, telephone (none ; yes, registered under the customers name )
+- Foreign: factor, foreign worker ( no ; yes )
+- Female: factor, female/male for gender
+
+Create a predictive model that predicts the outcome `BAD`.
+```{r}
+set.seed(77)
+val_percent <- 0.3
+val_idx     <- sample(1:nrow(credit_data))[1:round(nrow(credit_data) * val_percent)]
+# partition the data
+credit_data_train <- credit_data[-val_idx, ]
+credit_data_valid <- credit_data[ val_idx, ]
+
+library(tree)
+tree_model <- tree(factor(BAD)~., data=credit_data_train)
+summary(tree_model)
+
+#try the random forest model
+library(randomForest)
+random_forest_model <- randomForest(factor(BAD)~., data=credit_data_train)
+```
+
+Evaluate your model performance.  What criteria do you think will be appropriate.
+```{r}
+predicted_classes <- predict(random_forest_model, newdata=credit_data_valid)
+actual_classes <- credit_data_valid$BAD
+
+confusion_matrix <- table(predicted_classes, actual_classes)
+confusion_matrix
+accuracy <- sum(diag(confusion_matrix))/sum(confusion_matrix)
+accuracy 
+```
+
+Comment of the result:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Ames Housing data
+
+Please take a look at the Ames Housing data.
+
+```{r}
+library(AmesHousing)
+?ames_raw
+```
+
+Use data of `ames_raw` up to 2008 predict the housing price for the later years.
+```{r,echo=show_code}
+# Do feature engineering if needed.
+ames_raw_2008=ames_raw[ames_raw$`Yr Sold`<2008,]
+ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
+```
+
+Use the same loss function calculator.
+```{r,echo=show_code}
+calc_loss<-function(prediction,actual){
+  difpred <- actual-prediction
+  RMSE <-sqrt(mean(difpred^2))
+  operation_loss<-abs(sum(difpred[difpred<0]))+sum(0.1*actual[difpred>0])
+  return(
+    list(RMSE,operation_loss
+         )
+  )
+}
+```
+
+Fit a random Forest
+```{r}
+sum(is.na(ames_raw_2008$SalePrice))
+
+val_percent <- 0.2
+val_idx <- sample(1:nrow(ames_raw_2008))[1:round(nrow(ames_raw_2008) * val_percent)]
+
+# partition the data
+ames_house_train <- ames_raw_2008[-val_idx, ]
+ames_house_valid <- ames_raw_2008[ val_idx, ]
+
+#random_forest_mod <- randomForest(SalePrice~., data=ames_house_train, mtry=27, importance=TRUE)
+```
+
+Apply CART and try to interpret the result that you get.  Be sure to fit the models on a training set and evaluate their performance on a test set.  Does it have a good prediction accuracy?
+
+```{r}
+library(BART)
+```
+
+Comment of the result:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+Apply boosting, bagging, random forests, and BART to the Ames Housing data set. Be sure to fit the models on a training set and evaluate their performance on a test set. How accurate are the results compared to simple linear regression methods? Which of these approaches yields the best performance?
+
+```{r}
+
+#
+#
+```
+
+Comment of the result:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+## Problem Set
+
+### Boston
+
+
+In the lab, we applied random forests to the Boston data using `mtry = 6`,  `ntree = 25`, and `ntree = 500`.
+
+Create a plot displaying the test error resulting from random forests on this data set for a more comprehensive range of values for `mtry` and `ntree`. 
+You can model your plot after Figure 8.10. Describe the results obtained.
+```{r}
+data(Boston,package = "ISLR2")
+```
+
+###
+In the lab, a classification tree was applied to the Carseats data set after converting Sales into a qualitative response variable. Now we will seek to predict Sales using regression trees and related approaches, treating the response as a quantitative variable.
+
+```{r}
+data(Carseats,package = "ISLR2")
+attach(Carseats)
+```
+(a) Split the data set into a training set and a test set.
+```{r}
+set.seed(1018)
+train <- sample(1:nrow(Carseats), nrow(Carseats)/2)
+Carseats.test <- Carseats[-train, ]
+
+```
+
+(b) Fit a regression tree to the training set. Plot the tree, and interpret the results. What test MSE do you obtain?
+```{r}
+tree.Carseats <- tree(Sales~., Carseats, subset = train)
+plot(tree.Carseats)
+text(tree.Carseats, pretty=0)
+
+yhat <- predict(tree.Carseats, Carseats.test)
+Sales.test <- Sales[-train]
+
+plot(yhat, Sales.test)
+abline(0,1)
+mean((yhat-Sales.test)^2)
+```
+
+(c) Use cross-validation in order to determine the optimal level of tree complexity. 
+Does pruning the tree improve the test MSE?
+```{r}
+cv.carseats <- cv.tree(tree.Carseats)
+plot(cv.carseats$size, cv.carseats$dev, type="b")
+
+prune.carseats <- prune.tree(tree.Carseats, best=9)
+plot(prune.carseats)
+text(prune.carseats, pretty=0)
+
+yhat <- predict(prune.carseats, Carseats.test)
+Sales.test <- Sales[-train]
+
+plot(yhat, Sales.test)
+abline(0,1)
+mean((yhat-Sales.test)^2)
+```
+
+(d) Use the bagging approach in order to analyze this data. 
+What test MSE do you obtain? 
+Use the importance() function to determine which variables are most important.
+```{r}
+library(randomForest)
+set.seed(1018)
+
+bag.carseats <- randomForest(Sales~., data=Carseats, subset=train, mtry=10, importance=TRUE)
+bag.carseats
+
+importance(bag.carseats)
+
+yhat.bag <- predict(bag.carseats, newdata=Carseats[-train,])
+Carseats.test <- Sales[-train]
+
+plot(yhat.bag, Carseats.test)
+abline(0,1)
+mean((yhat.bag-Carseats.test)^2)
+```
+
+(e) Use random forests to analyze this data. 
+What test MSE do you obtain? 
+Use the importance() function to determine which variables are most important. 
+Describe the effect of m, the number of variables considered at each split, on the error rate obtained.
+```{r}
+set.seed(1018)
+
+rf.carseats <- randomForest(Sales~., data=Carseats, subset=train, mtry=7, importance=TRUE)
+importance(rf.carseats)
+
+yhat.rf <- predict(rf.carseats, newdata=Carseats[-train,])
+mean((yhat.rf-Sales.test)^2)
+```
+
+(f) Now analyze the data using BART, and report your results.
+```{r}
+library(BART)
+
+x <- Carseats[,2:11]
+y <- Carseats[, "Sales"]
+
+xtrain <- x[train,]
+ytrain <- y[train]
+xtest <- x[-train,]
+ytest <- y[-train]
+
+set.seed(1018)
+bartfit <- gbart(xtrain, ytrain, x.test=xtest)
+
+yhat.bart <- bartfit$yhat.test.mean
+mean((ytest-yhat.bart)^2)
+```
+
+
+### OJ
+
+This problem involves the OJ data set which is part of the ISLR2 package.
+```{r}
+data(OJ,package = "ISLR2")
+attach(OJ)
+```
+ 
+(a) Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+
+Your code:
+```{r,echo=TRUE}
+train <- sample(1:nrow(OJ), 800)
+OJ_train <- OJ[train,]
+OJ_test <- OJ[-train,]
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(b) Fit a tree to the training data, 
+with Purchase as the response and the other variables as predictors. 
+Use the summary() function to produce summary statistics about the tree, and describe the results obtained. 
+What is the training error rate? How many terminal nodes does the tree have?
+
+Your code:
+```{r,echo=TRUE}
+set.seed(1018)
+tree_OJ <- tree(Purchase~., data=OJ_train)
+summary(tree_OJ)
+```
+
+Your answer:
+training error rate: 16%
+terminal nodes: 8
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(c) Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.
+
+Your code:
+```{r,echo=TRUE}
+tree_OJ
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(d) Create a plot of the tree, and interpret the results.
+```{r}
+plot(tree_OJ)
+text(tree_OJ, pretty = 0)
+```
+
+(e) Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?
+
+Your code:
+```{r,echo=TRUE}
+OJ_predict <- predict(tree_OJ, newdata=OJ_test, type="class")
+table(OJ_predict, OJ_test$Purchase)
+(132+78)/(132+78+22+37)
+```
+
+Your answer:
+test error rate: 22%
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(f) Apply the `cv.tree()` function to the training set in order to determine the optimal tree size.
+
+Your code:
+```{r,echo=TRUE}
+set.seed(1018)
+
+cv_oj <- cv.tree(tree_OJ, FUN = prune.misclass)
+names(cv_oj)
+cv_oj
+```
+
+Your answer:
+the optimal tree size: 8
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(g) Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.
+
+Your code:
+```{r,echo=TRUE}
+plot(cv_oj$size, cv_oj$dev, type="b")
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(h) Which tree size corresponds to the lowest cross-validated classification error rate?
+
+Your code:
+```{r,echo=TRUE}
+#8
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(i) Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.
+
+Your code:
+```{r,echo=TRUE}
+prune.OJ <- prune.misclass(tree_OJ, best=8)
+summary(prune.OJ)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(j) Compare the training error rates between the pruned and unpruned trees. Which is higher?
+
+Your code:
+```{r,echo=TRUE}
+#almost the same
+```
+
+Your answer: almost the same
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+
+(k) Compare the test error rates between the pruned and unpruned trees. Which is higher?
+
+Your code:
+```{r,echo=TRUE}
+tree.pred <- predict(prune.OJ, OJ_test, type="class")
+table(tree.pred, OJ_test$Purchase)
+(138+88)/(270)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Hitters
+
+We now use boosting to predict Salary in the Hitters data set.
+
+```{r}
+data(Hitters,package = "ISLR2")
+attach(Hitters)
+```
+ 
+(a) Remove the observations for whom the salary information is unknown, and then log-transform the salaries. 
+
+Your code:
+```{r,echo=TRUE}
+dim(Hitters)
+colSums(is.na(Hitters))
+Hitters <- na.omit(Hitters)
+dim(Hitters)
+
+Hitters$Salary <- log(Hitters$Salary)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(b) Create a training set consisting of the first 200 observations, and a test set consisting of the remaining observations.
+
+Your code:
+```{r,echo=TRUE}
+set.seed(1018)
+
+train <- sample(1:nrow(Hitters), 200)
+hitters.test <- Hitters[-train,]
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(c) Perform boosting on the training set with 1,000 trees for a range of values of the shrinkage parameter λ. Produce a plot with different shrinkage values on the x-axis and the corresponding
+training set MSE on the y-axis.
+
+Your code:
+```{r,echo=TRUE}
+library(gbm)
+
+set.seed(1018)
+
+pow = seq(-2,0,0.1)
+lambdas = 10^pow
+train.error = rep(NA, length(lambdas))
+
+for (i in 1:length(lambdas)) {
+  boost.hitters <- gbm(Salary~., data=Hitters[train,], distribution="gaussian", n.trees=1000, shrinkage = lambdas[i], verbose=F)
+  model.preds = predict(boost.hitters, Hitters[train,], n.trees = 1000)
+  train.error[i] = mean((model.preds - Salary[train])^2)
+}
+plot(lambdas, train.error, type="b", xlab = "Shrinkage", ylab = "Train MSE")
+```
+
+Your answer:
+~~~
+Please write your answer in full sentences.
+~~~
+
+(d) Produce a plot with different shrinkage values on the x-axis and the corresponding test set MSE on the y-axis.
+
+Your code:
+```{r,echo=TRUE}
+library(gbm)
+
+set.seed(1018)
+
+test.error = rep(NA, length(lambdas))
+
+for (i in 1:length(lambdas)) {
+  boost.hitters <- gbm(Salary~., data=Hitters[train,], distribution="gaussian", n.trees=1000, shrinkage = lambdas[i], verbose=F)
+  model.preds = predict(boost.hitters, Hitters[-train,], n.trees = 1000)
+  test.error[i] = mean((model.preds - Salary[-train])^2)
+}
+
+plot(lambdas, test.error, type="b", xlab = "Shrinkage", ylab = "Test MSE")
+
+lambdas[which.min(test.error)]
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(e) Compare the test MSE of boosting to the test MSE that results from applying two of the regression approaches seen in Chapters 3 and 6.
+
+Your code:
+```{r,echo=TRUE}
+#
+#
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+(f) Which variables appear to be the most important predictors in the boosted model?
+
+Your code:
+```{r,echo=TRUE}
+boost.hitters <- gbm(Salary~., data=Hitters[train,], distribution="gaussian", n.trees=1000,
+                     shrinkage = lambdas[which.min(test.error)])
+summary(boost.hitters)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+(g) Now apply bagging to the training set. What is the test set MSE for this approach?
+
+Your code:
+```{r,echo=TRUE}
+yhat.boost <- predict(boost.hitters, newdata=Hitters[-train,], n.trees=1000)
+mean((yhat.boost - Hitters[-train,]$Salary)^2)
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+
+~~~
+
+### Caravan
+
+This question uses the `Caravan` data set.
+```{r}
+data(Caravan,package = "ISLR2")
+attach(Caravan)
+```
+
+(a) Create a training set consisting of the first 1,000 observations, and a test set consisting of the remaining observations.
+
+Your code:
+```{r,echo=TRUE}
+train <-  1:1000
+Caravan.train <-  Caravan[train, ]
+Caravan.test <-  Caravan[-train, ]
+```
+
+(b) Fit a boosting model to the training set with Purchase as the response and the other variables as predictors. Use 1,000 trees, and a shrinkage value of 0.01. Which predictors appear to be the most important?
+
+Your code:
+```{r,echo=TRUE}
+library(gbm)
+set.seed(1018)
+
+#Caravan$Purchase <- ifelse(Caravan$Purchase == "Yes",1,0)
+
+boost.car <- gbm(I(Purchase=="Yes")~., data=Caravan.train, n.trees=1000, shrinkage = 0.01, distribution = "bernoulli")
+summary(boost.car)
+```
+
+Your answer:
+~~~
+Please write your answer in full sentences.
+~~~
+
+
+(c) Use the boosting model to predict the response on the test data. 
+Predict that a person will make a purchase if the estimated probability of purchase is greater than 20 %. 
+Form a confusion matrix. 
+What fraction of the people predicted to make a purchase do in fact make one? 
+How does this compare with the results obtained from applying KNN or logistic regression to this data set?
+
+Your code:
+```{r,echo=TRUE}
+boost.pred <- predict(boost.car, newdata=Caravan.test, n.trees=1000, type="response")
+boost.pred <- factor(ifelse(boost.pred>0.2, "Yes", "No"))
+table(boost.pred, Caravan.test$Purchase)
+(4416+35)/(4822)
+35/117
+```
+
+Your answer:
+
+~~~
+Please write your answer in full sentences.
+
+~~~
+
+
+## Additional Material
+
+In this section we will look at other popular tree based methods that are readily available.
+For classification we will use the iris dataset.
+```{r,fig.width=12,fig.height=10}
+trainIndex <- createDataPartition(iris$Species,p=.7,list=FALSE)
+trainData <- iris[trainIndex,]
+testData  <- iris[-trainIndex,]
+```
+
+### CART using rpart
+
+There are several implementation of CART but rpart is one of more popular one
+
+```{r,fig.width=12,fig.height=10}
+# Fit CART  Model
+library(rpart)
+rpart.fit <- rpart(Species ~ ., data=trainData,cp=0)
+rpart.fit		
+plot(as.party(rpart.fit),main="rpart Model")
+```
+
+```{r,fig.width=8,fig.height=8}
+#Make predictions using the test data set
+rpart.pred <- predict(rpart.fit,newdata=testData,type="class")
+#Draw the ROC curve 
+rpart.ROC <- roc(predictor=as.numeric(rpart.pred),
+                 response=testData$Species)
+rpart.ROC$auc
+#Area under the curve: 0.8536
+plot(rpart.ROC)
+```
+
+
+### C-Tree
+
+Conditional inference trees (CTree) is a non-parametric class of regression trees embedding tree-structured regression models into a conditional inference procedures.  It is implemented in the R package `partykit`. 
+You can read more detail here.
+https://cran.r-project.org/web/packages/partykit/vignettes/ctree.pdf
+
+```{r,fig.width=12,fig.height=10}
+library(partykit)
+set.seed(23)
+# Fit Conditional Tree Model
+ctree.fit <- partykit::ctree(Species ~ ., data=trainData)
+ctree.fit	
+plot(ctree.fit,main="ctree Model")
+```
+
+```{r,fig.width=8,fig.height=8}
+#Make predictions using the test data set
+ctree.pred <- predict(ctree.fit,testData)
+#Draw the ROC curve 
+ctree.ROC <- pROC::roc(predictor=as.numeric(ctree.pred),
+                 response=testData$Species)
+ctree.ROC$auc
+#Area under the curve: 0.8326
+plot(ctree.ROC,main="ctree ROC")
+```
+
+
+### C4.5 
+
+C4.5 is similar to CART and it had it's moments.  C4.5 is different from CART since they use Shannon Entropy to pick features with the most significant information gain as nodes compared to CART that uses Gini Impurity
+
+Depending on your operating system RWeka might not work for you.
+And C4.5 is outdated.  You probably want to use C5.0, which is an improvement on C4.5.
+
+```{r}
+# load the package
+
+# fit model
+fit4.5 <- J48(Species~., data=iris)
+# summarize the fit
+summary(fit4.5)
+# make predictions
+predictions <- predict(fit4.5, iris[,1:4])
+# summarize accuracy
+table(predictions, iris$Species)
+```
+
+### C5.0
+
+C5.0 is an extension of C4.5.  It is said to be
+
+- faster than C4.5 (several orders of magnitude)
+- more memory efficient than C4.5
+- Smaller decision trees compared to C4.5
+- Can perform boosting to improve accuracy.
+- Weighting: allows you to weight different cases and misclassification types.
+- Winnowing: automatically winnows the attributes to remove those that may be unhelpful.
+
+```{r}
+#http://machinelearningmastery.com/non-linear-classification-in-r-with-decision-trees/
+# load the package
+library(C50)
+# fit model
+fit1 <- C5.0(Species~., data=iris)
+# fit boosted model
+fitb <- C5.0(Species~., data=iris, trials=10)
+# summarize the fit
+print(fit1)
+# make predictions
+predictions1 <- predict(fit1, iris)
+```
+
+Summarizing the accuracy 
+
+- Without boosting
+```{r}
+table(predictions1, iris$Species)
+```
+
+- With boosting
+```{r}
+table(predict(fitb, iris), iris$Species)
+```
+
+
+### BART
+
+BART is a Bayesian “sum-of-trees” model.
+For numeric response $y$, we have $y_i = f(x_i) + e_i$, where $e_i\sim N(0,\sigma^2)$.
+For a binary response $y$, $P(Y=1 | x) = F(f(x))$, 
+where $F$ denotes the standard normal cdf (probit link).
+
+In both cases, $f$ is the sum of many tree models. 
+The goal is to have flexible inference for the unknown function $f$.
+
+In the spirit of “ensemble models”, each tree is constrained by a prior distribution to be a weak learner so that it contributes a small amount to the overall fit.
+```{r,fig.width=8,fig.height=8}
+library(BayesTree)
+iris_sub<-iris[iris$Species %in% c("setosa" ,"versicolor"),]
+iris_sub$Species<-droplevels(iris_sub$Species)
+iris_test_idx<- sample(1:nrow(iris_sub),80)
+iris_test_spec_01<-as.integer(iris_sub$Species[-iris_test_idx])-1
+bartFit = bart( x.train=iris_sub[iris_test_idx,-5],
+                y.train=iris_sub$Species[iris_test_idx],
+                x.test=iris_sub[-iris_test_idx,-5],
+                ndpost=200) 
+
+table(1*(pnorm(apply(bartFit$yhat.test,2,mean))>0.5),iris_test_spec_01 )
+mean(1*(pnorm(apply(bartFit$yhat.test,2,mean))>0.5)!=iris_test_spec_01 )
+plot(bartFit) # plot bart fit
+# library(bartMachine)
+```
+
+### XGBoost
+
+XGBoost became popular due to its success in Kaggle competitions.  
+It's essentially a gradient boosting but implemented to perform better out of the box.  
+Some of the nice features include:
+
+- Default regularization
+- Tree growing and pruning scheme allows for multiple cuts
+- Computational efficiency by parallelization
+- A couple of default choices to make it easier to use
+- Handles missing data
+
+However, if you want to go deeper, there are some challenges/concerns.
+
+- Hyperparameter tuning is hard
+- Missing data imputation scheme is concerning
+- Cannot handle categorical variables
+
+Here is it used for the iris data.
+```{r}
+library(xgboost)
+
+xx     <- as.matrix(iris[,-5] )
+yy     <- as.integer(iris$Species)-1
+dtrain <- xgb.DMatrix(data = xx, label = yy )
+
+bst    <- xgboost( data      = dtrain,
+                   max_depth = 2,
+                   eta       = 1,
+                   nrounds   = 2,
+                   num_class = 3,
+                   nthread   = 2,
+                   verbose   = 2 )
+
+predict(bst, newdata=dtrain) 
+```
+
+What gets unwieldy is when you start to tune the parameters.  
+Here is the list of parameters used.  Not all of them need tuning, but I hope you understand.
+
+- General Parameters that define the overall functionality of XGBoost.
+  - booster [default=gbtree]: type of model
+  - silent [default=0]: display log?  
+  - nthread [default to the maximum number of threads available if not set]: number of cores
+- Learning Task Parameters define the optimization objective and the metric to be calculated at each step.
+  - objective [default=reg:linear] the loss function to be minimized. 
+  - eval_metric [ default according to objective ] The metric for validation data.
+  - seed [default=0] The random number seed.
+- Booster Parameters
+  - eta [default=0.3]. Analogous to the learning rate in GBM
+  - min_child_weight [default=1] is the minimum sum of weights of all observations required in a child.
+  - max_depth [default=6] The maximum depth of a tree, same as GBM.
+  - max_leaf_nodes  The maximum number of terminal nodes or leaves in a tree.
+  - gamma [default=0] is the minimum loss reduction required to make a split.
+  - max_delta_step [default=0]  If it is set to a positive value makes the update step more conservative.
+  - subsample [default=1] the fraction of observations randomly sampled for each tree.
+  - colsample_bytree [default=1] is the fraction of columns randomly sampled for each tree.
+  - colsample_bylevel [default=1] the subsample ratio of columns for each split, in each level.
+  - lambda [default=1]  L2 regularization term on weights (analogous to Ridge regression)
+  - alpha [default=0] L1 regularization term on weight (analogous to Lasso regression)
+  - scale_pos_weight [default=1] >0 for high class imbalance as it helps in faster convergence.
+
+Because of this, there is an automatic version of xgboost that does the parameter tuning for you.
+```{r,eval=FALSE}
+trainIndex <- createDataPartition(iris$Species,p=.7,list=FALSE)
+
+trainData <- iris[trainIndex,]
+testData  <- iris[-trainIndex,]
+
+trainData_f <-trainData
+trainData_f$Species <- factor(trainData$Species)
+
+# load library
+devtools::install_github("ja-thomas/autoxgboost")
+library(autoxgboost)
+
+# create a classification task
+trainTask = makeClassifTask(data = trainData_f, target = "Species")
+
+# create a control object for optimizer
+ctrl = makeMBOControl()
+ctrl = setMBOControlTermination(ctrl, iters = 5L) 
+
+# fit the model
+res = autoxgboost(trainTask, control = ctrl, tune.threshold = FALSE)
+
+# do prediction and print confusion matrix
+prediction = predict(res, testData)
+table(prediction$data[,1],prediction$data[,2])
+plot(prediction$data[,1],prediction$data[,2])
+
+#caret::confusionMatrix(test$Species, prediction$data$response)
+```
+
+
+### catboost
+
+Catboost is another popular boosting method that in my view popular due to well thought out implementation.
+The three features that distingishes itself from the other similar models are
+
+- Symmetric tree
+- Ordered Boosting
+- Categorical Feature Engineering
+
+
+ https://catboost.ai/en/docs/concepts/r-usages-examples
+```{r}
+library(catboost)
+# load data
+set.seed(1)
+idx=sample(1:nrow(iris),nrow(iris)*.7)
+train=iris[idx,]
+test=iris[-idx,]
+fit_control <- caret::trainControl(
+  method = "cv", 
+  number = 3, 
+  search = "random",
+  classProbs = TRUE
+)
+# set grid options
+grid <- expand.grid(
+  depth = c(4, 6, 8),
+  learning_rate = 0.1,
+  l2_leaf_reg = 0.1,
+  rsm = 0.95,
+  border_count = 64,
+  iterations = 10
+)
+model <- caret::train(
+  x = train[,-5], 
+  y = train[,5],
+  method = catboost.caret,
+  metric = "Accuracy",
+  maximize = TRUE,
+  preProc = NULL,
+  tuneGrid = grid, 
+  tuneLength = 30, 
+  trControl = fit_control
+)
+table(test$Species,predict(model,test))
+```
+
+### Ensemble model
+
+Bagging, Random Forest, and Boosting are examples of ensemble models.
+The idea is to combine models to get a better result than any individual model can achieve.
+So far, we’ve combined the same models, but that need not be the case.
+One way to combine the results is to just average the outcomes from different models.
+But one need not trust the results from all models equally.
+An alternative way is to use the predictions as input into a regression model to create weights representing the level of trust in the model.
+
+Stacking is easy to implement but even easier if you use caret.
+For example, if you want to do 5 fold CV to fit random forest, gbm, linear regression and gam, then combine the results.
+
+```{r}
+data(Sonar,package = "mlbench")
+inTrain <- createDataPartition(y = Sonar$Class, p = .75, list = FALSE)
+training <- Sonar[inTrain, ]
+testing <- Sonar[-inTrain, ]
+my_control <- trainControl(
+  method="cv",
+  number=25,
+  savePredictions="final",
+  classProbs=TRUE,
+  index=createResample(training$Class, 25),
+  summaryFunction=twoClassSummary
+)
+```
+
+```{r}
+model_list <- caretList( Class ~ ., data=training,
+  			     trControl=my_control,
+  			       metric="ROC",
+  			     methodList=c("rf","glm","rpart"))
+```
+
+```{r}
+stacked.model <- caretStack( model_list, method="glm")
+predict(stacked.model,testing)
+```
